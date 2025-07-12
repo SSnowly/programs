@@ -24,19 +24,20 @@ local function initMonitor()
     if monitor then
         monitor.clear()
         
+        monitor.setTextScale(1.0)
         local baseWidth, baseHeight = monitor.getSize()
-        print("Base monitor size: " .. baseWidth .. "x" .. baseHeight)
+        print("Base monitor size at 1.0 scale: " .. baseWidth .. "x" .. baseHeight)
         
         screenConfig.isColor = monitor.isColor()
         
         if baseWidth < 30 or baseHeight < 15 then
-            screenConfig.textScale = 0.5
-            monitor.setTextScale(0.5)
-            print("Small monitor detected, using 0.5 scale")
-        else
             screenConfig.textScale = 1.0
             monitor.setTextScale(1.0)
-            print("Large monitor detected, using 1.0 scale")
+            print("Small monitor detected, using 1.0 scale")
+        else
+            screenConfig.textScale = 0.5
+            monitor.setTextScale(0.5)
+            print("Large monitor detected, using 0.5 scale")
         end
         
         local finalWidth, finalHeight = monitor.getSize()
