@@ -1,5 +1,11 @@
 local CONFIG_FILE = "blaster_config.txt"
 local monitor = nil
+local screenConfig = {
+    width = 0,
+    height = 0,
+    textScale = 1.0,
+    isColor = true
+}
 
 local function findMonitor()
     local networkPeripherals = peripheral.getNames()
@@ -20,13 +26,21 @@ local function initMonitor()
         local width, height = monitor.getSize()
         print("Monitor detected: " .. width .. "x" .. height)
         
+        screenConfig.width = width
+        screenConfig.height = height
+        screenConfig.isColor = monitor.isColor()
+        
         if width < 30 or height < 15 then
+            screenConfig.textScale = 0.5
             monitor.setTextScale(0.5)
             print("Small monitor detected, using 0.5 scale")
         else
+            screenConfig.textScale = 1.0
             monitor.setTextScale(1.0)
             print("Large monitor detected, using 1.0 scale")
         end
+        
+        print("Screen config saved: " .. screenConfig.width .. "x" .. screenConfig.height .. " scale:" .. screenConfig.textScale .. " color:" .. tostring(screenConfig.isColor))
         
         monitor.setCursorPos(1, 1)
         return true
@@ -37,8 +51,7 @@ end
 local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
     if not monitor then return end
     
-    local screenWidth, screenHeight = monitor.getSize()
-    local maxBarWidth = screenWidth - x - 15
+    local maxBarWidth = screenConfig.width - x - 15
     local actualWidth = math.min(width, maxBarWidth)
     
     local percentage = math.min(progress / maxProgress, 1)
@@ -55,11 +68,13 @@ local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
     
     if filledWidth > 0 then
         local colorChar = "0"
-        if color == colors.lime then colorChar = "5"
-        elseif color == colors.orange then colorChar = "1"
-        elseif color == colors.red then colorChar = "e"
-        elseif color == colors.green then colorChar = "d"
-        elseif color == colors.blue then colorChar = "b"
+        if screenConfig.isColor then
+            if color == colors.lime then colorChar = "5"
+            elseif color == colors.orange then colorChar = "1"
+            elseif color == colors.red then colorChar = "e"
+            elseif color == colors.green then colorChar = "d"
+            elseif color == colors.blue then colorChar = "b"
+            end
         end
         
         barBg = string.rep(colorChar, filledWidth) .. string.rep("7", actualWidth - filledWidth)
@@ -79,22 +94,21 @@ end
 local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount, batchSize)
     if not monitor then return end
     
-    local screenWidth, screenHeight = monitor.getSize()
     monitor.clear()
     
     local headerText = "CREATE BLASTING SYSTEM"
-    if string.len(headerText) > screenWidth then
+    if string.len(headerText) > screenConfig.width then
         headerText = "BLASTING SYSTEM"
     end
-    if string.len(headerText) > screenWidth then
+    if string.len(headerText) > screenConfig.width then
         headerText = "BLASTER"
     end
     
-    local headerBarBg = string.rep("4", screenWidth)
-    local headerBarFg = string.rep("f", screenWidth)
-    local headerBarText = string.rep(" ", screenWidth)
+    local headerBarBg = string.rep("4", screenConfig.width)
+    local headerBarFg = string.rep("f", screenConfig.width)
+    local headerBarText = string.rep(" ", screenConfig.width)
     
-    local headerStart = math.floor((screenWidth - string.len(headerText)) / 2) + 1
+    local headerStart = math.floor((screenConfig.width - string.len(headerText)) / 2) + 1
     for i = 1, string.len(headerText) do
         headerBarText = string.sub(headerBarText, 1, headerStart + i - 2) .. string.sub(headerText, i, i) .. string.sub(headerBarText, headerStart + i, -1)
     end
@@ -106,7 +120,7 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     monitor.setTextColor(colors.white)
     monitor.setBackgroundColor(colors.black)
     local statusText = "Batch #" .. batchId .. " | Phase: " .. phase
-    if string.len(statusText) > screenWidth then
+    if string.len(statusText) > screenConfig.width then
         statusText = "B" .. batchId .. " | " .. phase
     end
     monitor.write(statusText)
@@ -122,7 +136,7 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         barColor = colors.lime
     end
     
-    local progressBarWidth = math.min(20, screenWidth - 20)
+    local progressBarWidth = math.min(20, screenConfig.width - 20)
     drawProgressBar(1, 5, progressBarWidth, progress, maxProgress, "Progress:", barColor)
     
     monitor.setCursorPos(1, 8)
@@ -141,9 +155,9 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     monitor.setTextColor(colors.yellow)
     monitor.write("Items Processed: " .. itemsProcessed .. "/" .. (batchSize or maxProgress))
     
-    local bottomBarBg = string.rep("8", screenWidth)
-    local bottomBarFg = string.rep("0", screenWidth)
-    local bottomBarText = string.rep(" ", screenWidth)
+    local bottomBarBg = string.rep("8", screenConfig.width)
+    local bottomBarFg = string.rep("0", screenConfig.width)
+    local bottomBarText = string.rep(" ", screenConfig.width)
     
     local outputPercentage = math.floor((outputCount / 2304) * 100)
     local outputText = outputPercentage .. "%"
@@ -153,34 +167,33 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
     end
     
-    local timeStart = screenWidth - string.len(timeText) + 1
+    local timeStart = screenConfig.width - string.len(timeText) + 1
     for i = 1, string.len(timeText) do
         bottomBarText = string.sub(bottomBarText, 1, timeStart + i - 2) .. string.sub(timeText, i, i) .. string.sub(bottomBarText, timeStart + i, -1)
     end
     
-    monitor.setCursorPos(1, screenHeight)
+    monitor.setCursorPos(1, screenConfig.height)
     monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
 
 local function showWaitingScreen(outputCount)
     if not monitor then return end
     
-    local screenWidth, screenHeight = monitor.getSize()
     monitor.clear()
     
     local headerText = "CREATE BLASTING SYSTEM"
-    if string.len(headerText) > screenWidth then
+    if string.len(headerText) > screenConfig.width then
         headerText = "BLASTING SYSTEM"
     end
-    if string.len(headerText) > screenWidth then
+    if string.len(headerText) > screenConfig.width then
         headerText = "BLASTER"
     end
     
-    local headerBarBg = string.rep("4", screenWidth)
-    local headerBarFg = string.rep("f", screenWidth)
-    local headerBarText = string.rep(" ", screenWidth)
+    local headerBarBg = string.rep("4", screenConfig.width)
+    local headerBarFg = string.rep("f", screenConfig.width)
+    local headerBarText = string.rep(" ", screenConfig.width)
     
-    local headerStart = math.floor((screenWidth - string.len(headerText)) / 2) + 1
+    local headerStart = math.floor((screenConfig.width - string.len(headerText)) / 2) + 1
     for i = 1, string.len(headerText) do
         headerBarText = string.sub(headerBarText, 1, headerStart + i - 2) .. string.sub(headerText, i, i) .. string.sub(headerBarText, headerStart + i, -1)
     end
@@ -188,7 +201,7 @@ local function showWaitingScreen(outputCount)
     monitor.setCursorPos(1, 1)
     monitor.blit(headerBarText, headerBarFg, headerBarBg)
     
-    local startY = math.max(3, math.floor(screenHeight / 4))
+    local startY = math.max(3, math.floor(screenConfig.height / 4))
     
     monitor.setCursorPos(2, startY)
     monitor.setTextColor(colors.lime)
@@ -199,12 +212,12 @@ local function showWaitingScreen(outputCount)
     monitor.setTextColor(colors.yellow)
     monitor.write("Waiting for Items...")
     
-    if screenHeight > startY + 4 then
+    if screenConfig.height > startY + 4 then
         monitor.setCursorPos(2, startY + 4)
         monitor.setTextColor(colors.orange)
         monitor.write("Status:")
         
-        local barWidth = math.min(20, screenWidth - 12)
+        local barWidth = math.min(20, screenConfig.width - 12)
         local time = os.clock()
         local cycle = time % 4
         local position = 0
@@ -220,14 +233,18 @@ local function showWaitingScreen(outputCount)
         local statusBarFg = string.rep("0", barWidth)
         
         if position >= 0 and position < barWidth then
-            statusBarBg = string.sub(statusBarBg, 1, position) .. "d" .. string.sub(statusBarBg, position + 2, -1)
+            if screenConfig.isColor then
+                statusBarBg = string.sub(statusBarBg, 1, position) .. "d" .. string.sub(statusBarBg, position + 2, -1)
+            else
+                statusBarBg = string.sub(statusBarBg, 1, position) .. "0" .. string.sub(statusBarBg, position + 2, -1)
+            end
         end
         
         monitor.setCursorPos(2, startY + 5)
         monitor.blit(statusBarText, statusBarFg, statusBarBg)
     end
     
-    if screenHeight > startY + 7 then
+    if screenConfig.height > startY + 7 then
         monitor.setCursorPos(2, startY + 7)
         monitor.setTextColor(colors.cyan)
         monitor.write("Network: Active")
@@ -237,9 +254,9 @@ local function showWaitingScreen(outputCount)
         monitor.write("System: Online")
     end
     
-    local bottomBarBg = string.rep("8", screenWidth)
-    local bottomBarFg = string.rep("0", screenWidth)
-    local bottomBarText = string.rep(" ", screenWidth)
+    local bottomBarBg = string.rep("8", screenConfig.width)
+    local bottomBarFg = string.rep("0", screenConfig.width)
+    local bottomBarText = string.rep(" ", screenConfig.width)
     
     local outputPercentage = math.floor(((outputCount or 0) / 2304) * 100)
     local outputText = outputPercentage .. "%"
@@ -249,12 +266,12 @@ local function showWaitingScreen(outputCount)
         bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
     end
     
-    local timeStart = screenWidth - string.len(timeText) + 1
+    local timeStart = screenConfig.width - string.len(timeText) + 1
     for i = 1, string.len(timeText) do
         bottomBarText = string.sub(bottomBarText, 1, timeStart + i - 2) .. string.sub(timeText, i, i) .. string.sub(bottomBarText, timeStart + i, -1)
     end
     
-    monitor.setCursorPos(1, screenHeight)
+    monitor.setCursorPos(1, screenConfig.height)
     monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
 
