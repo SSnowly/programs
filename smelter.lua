@@ -343,6 +343,38 @@ local function countItemsInChest(chestSide)
     return totalItems
 end
 
+local function getItemTypeAndCount(inputChestSide)
+    local inputChest = peripheral.wrap(inputChestSide)
+    if not inputChest then
+        return nil, 0
+    end
+    
+    local items = inputChest.list()
+    local itemTypes = {}
+    
+    -- Count items by type
+    for slot, item in pairs(items) do
+        if itemTypes[item.name] then
+            itemTypes[item.name] = itemTypes[item.name] + item.count
+        else
+            itemTypes[item.name] = item.count
+        end
+    end
+    
+    -- Find the item type with the most items (prioritize processing)
+    local maxCount = 0
+    local selectedType = nil
+    
+    for itemType, count in pairs(itemTypes) do
+        if count > maxCount then
+            maxCount = count
+            selectedType = itemType
+        end
+    end
+    
+    return selectedType, maxCount
+end
+
 local function transferFromInputChest(inputChestSide, maxItems)
     inputChestSide = inputChestSide or "left"
     maxItems = maxItems or 16
@@ -351,16 +383,22 @@ local function transferFromInputChest(inputChestSide, maxItems)
     
     if not inputChest then
         print("Warning: No input inventory found on " .. inputChestSide .. " side")
-        return 0
+        return 0, nil
     end
     
-    local totalItems = countItemsInChest(inputChestSide)
-    local itemsToProcess = math.min(totalItems, maxItems)
+    local selectedType, availableCount = getItemTypeAndCount(inputChestSide)
     
-    print("Input inventory contains: " .. totalItems .. " items")
+    if not selectedType or availableCount == 0 then
+        print("No items found in input inventory")
+        return 0, nil
+    end
+    
+    local itemsToProcess = math.min(availableCount, maxItems)
+    
+    print("Input inventory contains: " .. availableCount .. " x " .. selectedType)
     print("Processing: " .. itemsToProcess .. " items (max " .. maxItems .. " per batch)")
     
-    return itemsToProcess
+    return itemsToProcess, selectedType
 end
 
 local function transferToOutputChest(outputChestSide)
@@ -491,7 +529,7 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     -- Wait 7.5 seconds for processing to start with progress updates
     print("[Batch " .. batchId .. "] Waiting 7.5s for processing...")
     for i = 1, 15 do
-        local progress = (i / 15) * 100
+        local progress = math.floor((i / 15) * 100)
         updateMonitorDisplay(batchId, "Processing", progress, 100, countItemsInChest(inputChestSide), countItemsInChest(outputChestSide))
         sleep(0.5)
     end
@@ -529,7 +567,7 @@ local function blast(inputChestSide, outputChestSide, redstoneSide, flowControlS
     redstoneSide = redstoneSide or "back"
     
     -- Check input inventory and get items to process (max 16)
-    local quantity = transferFromInputChest(inputChestSide, 16)
+    local quantity, itemType = transferFromInputChest(inputChestSide, 16)
     
     if quantity == 0 then
         print("No items to process in input inventory")
@@ -559,14 +597,14 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
         local totalItems = countItemsInChest(inputChestSide)
         
         -- Only start new batch if not currently processing
-        if not processingBatch and totalItems >= 16 then
-            -- Start new batch if we have enough items
+        if not processingBatch and totalItems > 0 then
+            -- Start new batch with available items (up to 16)
             batchCounter = batchCounter + 1
-            local quantity = transferFromInputChest(inputChestSide, 16)
+            local quantity, itemType = transferFromInputChest(inputChestSide, 16)
             
             if quantity > 0 then
                 processingBatch = true
-                print("\n--- Starting Batch " .. batchCounter .. " ---")
+                print("\n--- Starting Batch " .. batchCounter .. " (" .. quantity .. " x " .. (itemType or "unknown") .. ") ---")
                 
                 -- Process batch linearly (wait for completion)
                 processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
@@ -574,28 +612,13 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
                 processingBatch = false
                 print("Batch " .. batchCounter .. " completed. Ready for next batch.")
             end
-        elseif not processingBatch and totalItems > 0 and totalItems < 16 then
-            -- Process remaining items if less than 16
-            batchCounter = batchCounter + 1
-            local quantity = transferFromInputChest(inputChestSide, totalItems)
-            
-            if quantity > 0 then
-                processingBatch = true
-                print("\n--- Starting Final Batch " .. batchCounter .. " (" .. quantity .. " items) ---")
-                
-                -- Process batch linearly (wait for completion)
-                processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
-                
-                processingBatch = false
-                print("Final batch " .. batchCounter .. " completed.")
-            end
         end
         
         -- Show status
         if processingBatch then
             print("Processing batch " .. batchCounter .. " | Items remaining: " .. countItemsInChest(inputChestSide))
-        elseif totalItems > 0 and totalItems < 16 then
-            print("Waiting for more items (" .. totalItems .. "/16) | Need " .. (16 - totalItems) .. " more")
+        elseif totalItems > 0 then
+            print("Items ready for processing: " .. totalItems .. " (will process up to 16)")
         elseif totalItems == 0 then
             print("Waiting for items in input inventory...")
         end
@@ -621,15 +644,15 @@ local function autoBlaster(config)
         local currentItemCount = countItemsInChest(config.inputChest)
         
         -- Only start new batch if not currently processing and items are available
-        if not processingBatch and currentItemCount >= 16 then
+        if not processingBatch and currentItemCount > 0 then
             print("\nItems detected! Starting batch processing...")
             
             batchCounter = batchCounter + 1
-            local quantity = transferFromInputChest(config.inputChest, 16)
+            local quantity, itemType = transferFromInputChest(config.inputChest, 16) -- Take up to 16 items
             
             if quantity > 0 then
                 processingBatch = true
-                print("Starting Batch " .. batchCounter .. " (" .. quantity .. " items)")
+                print("Starting Batch " .. batchCounter .. " (" .. quantity .. " x " .. (itemType or "unknown") .. ")")
                 
                 -- Process batch linearly (wait for completion)
                 processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
@@ -644,8 +667,8 @@ local function autoBlaster(config)
         -- Show status
         if processingBatch then
             print("Processing batch " .. batchCounter .. " | Items in inventory: " .. currentItemCount)
-        elseif currentItemCount > 0 and currentItemCount < 16 then
-            print("Waiting for more items (" .. currentItemCount .. "/16) | Need " .. (16 - currentItemCount) .. " more")
+        elseif currentItemCount > 0 then
+            print("Items ready for processing: " .. currentItemCount .. " (will process up to 16)")
         elseif currentItemCount == 0 then
             print("Waiting for items in input inventory...")
         end
@@ -657,8 +680,8 @@ end
 -- Main program
 local function main()
     print("=== Create Blasting Control System ===")
-    print("Auto-detects items and processes in 16-item batches")
-    print("Multiple batches can run simultaneously")
+    print("Auto-detects items and processes up to 16 items per batch")
+    print("Processes items by type - batches linearly")
     print()
     
     -- Load or create configuration
@@ -716,4 +739,4 @@ _G.saveConfig = saveConfig
 if not _G.BLASTER_LOADED then
     _G.BLASTER_LOADED = true
     main()
-end 
+end
