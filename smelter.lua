@@ -2,16 +2,6 @@ local CONFIG_FILE = "blaster_config.txt"
 local monitor = nil
 
 local function findMonitor()
-    local sides = {"left", "right", "top", "bottom", "front", "back"}
-    for _, side in pairs(sides) do
-        if peripheral.isPresent(side) then
-            local type = peripheral.getType(side)
-            if type and string.find(type, "monitor") then
-                return peripheral.wrap(side)
-            end
-        end
-    end
-
     local networkPeripherals = peripheral.getNames()
     for _, name in pairs(networkPeripherals) do
         local type = peripheral.getType(name)
@@ -27,7 +17,7 @@ local function initMonitor()
     monitor = findMonitor()
     if monitor then
         monitor.clear()
-        monitor.setTextScale(0.5)
+        monitor.setTextScale(1.0)
         monitor.setCursorPos(1, 1)
         return true
     end
@@ -36,43 +26,92 @@ end
 
 local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
     if not monitor then return end
-
+    
     local percentage = math.min(progress / maxProgress, 1)
     local filledWidth = math.floor(width * percentage)
-
+    local percentageText = math.floor(percentage * 100) .. "%"
+    
     monitor.setCursorPos(x, y)
-    monitor.setTextColor(colors.white)
+    monitor.setTextColor(colors.yellow)
     monitor.write(label)
-
+    
+    local barText = string.rep(" ", width)
+    local barBg = string.rep("7", width)
+    local barFg = string.rep("0", width)
+    
+    if filledWidth > 0 then
+        local colorChar = "0"
+        if color == colors.lime then colorChar = "5"
+        elseif color == colors.orange then colorChar = "1"
+        elseif color == colors.red then colorChar = "e"
+        elseif color == colors.green then colorChar = "d"
+        elseif color == colors.blue then colorChar = "b"
+        end
+        
+        barBg = string.rep(colorChar, filledWidth) .. string.rep("7", width - filledWidth)
+    end
+    
     monitor.setCursorPos(x, y + 1)
-    monitor.setBackgroundColor(colors.gray)
-    monitor.write(string.rep(" ", width))
-
-    monitor.setCursorPos(x, y + 1)
-    monitor.setBackgroundColor(color)
-    monitor.write(string.rep(" ", filledWidth))
-
-    monitor.setBackgroundColor(colors.black)
+    monitor.blit(barText, barFg, barBg)
+    
     monitor.setCursorPos(x + width + 2, y + 1)
     monitor.setTextColor(colors.white)
-    monitor.write(progress .. "/" .. maxProgress)
+    monitor.setBackgroundColor(colors.black)
+    monitor.write(percentageText .. " (" .. progress .. "/" .. maxProgress .. ")")
+end
+
+local function drawInventoryDisplay(x, y, label, count, maxCount, color)
+    if not monitor then return end
+    
+    local width = 20
+    local percentage = maxCount > 0 and math.min(count / maxCount, 1) or 0
+    local filledWidth = math.floor(width * percentage)
+    local percentageText = math.floor(percentage * 100) .. "%"
+    
+    monitor.setCursorPos(x, y)
+    monitor.setTextColor(colors.yellow)
+    monitor.write(label)
+    
+    local barText = string.rep(" ", width)
+    local barBg = string.rep("8", width)
+    local barFg = string.rep("0", width)
+    
+    if filledWidth > 0 then
+        local colorChar = "0"
+        if color == colors.cyan then colorChar = "9"
+        elseif color == colors.lime then colorChar = "5"
+        elseif color == colors.orange then colorChar = "1"
+        end
+        
+        barBg = string.rep(colorChar, filledWidth) .. string.rep("8", width - filledWidth)
+    end
+    
+    monitor.setCursorPos(x, y + 1)
+    monitor.blit(barText, barFg, barBg)
+    
+    monitor.setCursorPos(x, y + 2)
+    monitor.setTextColor(colors.white)
+    monitor.setBackgroundColor(colors.black)
+    monitor.write(count .. " items " .. percentageText)
 end
 
 local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount)
     if not monitor then return end
-
+    
     monitor.clear()
+    
+    local headerText = "CREATE BLASTING SYSTEM"
+    local headerBg = string.rep("4", string.len(headerText))
+    local headerFg = string.rep("f", string.len(headerText))
+    
     monitor.setCursorPos(1, 1)
-    monitor.setTextColor(colors.yellow)
-    monitor.write("=== CREATE BLASTING SYSTEM ===")
-
+    monitor.blit(headerText, headerFg, headerBg)
+    
     monitor.setCursorPos(1, 3)
     monitor.setTextColor(colors.white)
-    monitor.write("Current Batch: " .. batchId)
-
-    monitor.setCursorPos(1, 4)
-    monitor.write("Phase: " .. phase)
-
+    monitor.setBackgroundColor(colors.black)
+    monitor.write("Batch #" .. batchId .. " | Phase: " .. phase)
+    
     local barColor = colors.blue
     if phase == "Processing" then
         barColor = colors.orange
@@ -80,21 +119,68 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         barColor = colors.red
     elseif phase == "Complete" then
         barColor = colors.green
+    elseif phase == "Starting" then
+        barColor = colors.lime
     end
+    
+    drawProgressBar(1, 5, 25, progress, maxProgress, "Progress:", barColor)
+    
+    drawInventoryDisplay(1, 8, "Input Storage:", inputCount, 2304, colors.cyan)
+    drawInventoryDisplay(1, 12, "Output Storage:", outputCount, 2304, colors.lime)
+    
+    monitor.setCursorPos(1, 16)
+    monitor.setTextColor(colors.lightGray)
+    monitor.setBackgroundColor(colors.black)
+    monitor.write("Time: " .. os.date("%H:%M:%S"))
+end
 
-    drawProgressBar(1, 6, 30, progress, maxProgress, "Progress:", barColor)
-
-    monitor.setCursorPos(1, 9)
-    monitor.setTextColor(colors.cyan)
-    monitor.write("Input Chest: " .. inputCount .. " items")
-
-    monitor.setCursorPos(1, 10)
+local function showWaitingScreen()
+    if not monitor then return end
+    
+    monitor.clear()
+    
+    local title = "BLASTING SYSTEM"
+    local subtitle = "Ready for Operation"
+    local status = "Waiting for Items..."
+    
+    local titleBg = string.rep("4", string.len(title))
+    local titleFg = string.rep("f", string.len(title))
+    
+    monitor.setCursorPos(2, 2)
+    monitor.blit(title, titleFg, titleBg)
+    
+    monitor.setCursorPos(2, 4)
     monitor.setTextColor(colors.lime)
-    monitor.write("Output Chest: " .. outputCount .. " items")
-
-    monitor.setCursorPos(1, 12)
+    monitor.setBackgroundColor(colors.black)
+    monitor.write(subtitle)
+    
+    monitor.setCursorPos(2, 6)
+    monitor.setTextColor(colors.yellow)
+    monitor.write(status)
+    
+    local animation = {"[    ]", "[=   ]", "[==  ]", "[=== ]", "[====]", "[ ===]", "[  ==]", "[   =]"}
+    local animIndex = math.floor(os.clock() * 2) % #animation + 1
+    
+    monitor.setCursorPos(2, 8)
+    monitor.setTextColor(colors.orange)
+    monitor.write("Status: " .. animation[animIndex])
+    
+    monitor.setCursorPos(2, 10)
+    monitor.setTextColor(colors.cyan)
+    monitor.write("Network: Active")
+    
+    monitor.setCursorPos(2, 11)
+    monitor.setTextColor(colors.lightBlue)
+    monitor.write("System: Online")
+    
+    monitor.setCursorPos(2, 13)
     monitor.setTextColor(colors.lightGray)
     monitor.write("Time: " .. os.date("%H:%M:%S"))
+    
+    local border = string.rep("=", 25)
+    monitor.setCursorPos(1, 15)
+    monitor.setTextColor(colors.gray)
+    monitor.write(border)
 end
 
 local function getBlastTime(quantity)
@@ -153,17 +239,6 @@ end
 local function getAvailableInventories()
     local inventories = {}
 
-    local sides = {"left", "right", "top", "bottom", "front", "back"}
-
-    for _, side in pairs(sides) do
-        if peripheral.isPresent(side) then
-            local peripheral_name = peripheral.getType(side)
-            if peripheral_name and isInventoryType(peripheral_name) then
-                table.insert(inventories, {side = side, type = peripheral_name, location = "direct"})
-            end
-        end
-    end
-
     local networkPeripherals = peripheral.getNames()
 
     for _, name in pairs(networkPeripherals) do
@@ -179,16 +254,15 @@ end
 local function selectInventory(prompt, inventories)
     print(prompt)
     for i, inv in pairs(inventories) do
-        local locationText = inv.location == "direct" and "direct" or "network"
-        print(i .. ". " .. inv.side .. " (" .. inv.type .. ") [" .. locationText .. "]")
+        print(i .. ". " .. inv.side .. " (" .. inv.type .. ") [network]")
     end
     print("Enter choice (1-" .. #inventories .. "):")
-
+    
     local choice = tonumber(io.read())
     if choice and choice >= 1 and choice <= #inventories then
         return inventories[choice].side
     end
-
+    
     return nil
 end
 
@@ -196,40 +270,17 @@ local function setupConfiguration()
     print("=== First Time Setup ===")
     print("Scanning for peripherals...")
     print()
-
-    local sides = {"left", "right", "top", "bottom", "front", "back"}
+    
     local inventoryCount = 0
-
-    print("=== DIRECT CONNECTIONS ===")
-    for _, side in pairs(sides) do
-        if peripheral.isPresent(side) then
-            local peripheral_name = peripheral.getType(side)
-            if peripheral_name then
-                local isInventory = isInventoryType(peripheral_name)
-
-                if isInventory then
-                    print(side .. ": " .. peripheral_name .. " [INVENTORY]")
-                    inventoryCount = inventoryCount + 1
-                else
-                    print(side .. ": " .. peripheral_name .. " [NOT INVENTORY]")
-                end
-            else
-                print(side .. ": Error getting peripheral type")
-            end
-        else
-            print(side .. ": No peripheral connected")
-        end
-    end
-
-    print()
+    
     print("=== NETWORK CONNECTIONS ===")
     local networkPeripherals = peripheral.getNames()
-
+    
     for _, name in pairs(networkPeripherals) do
         local peripheral_type = peripheral.getType(name)
         if peripheral_type then
             local isInventory = isInventoryType(peripheral_type)
-
+            
             if isInventory then
                 print(name .. ": " .. peripheral_type .. " [INVENTORY]")
                 inventoryCount = inventoryCount + 1
@@ -238,7 +289,7 @@ local function setupConfiguration()
             end
         end
     end
-
+    
     print()
     print("Total inventories found: " .. inventoryCount)
     print()
@@ -601,41 +652,42 @@ local function autoBlaster(config)
     print("Flow control side: " .. (config.flowControlSide or "none"))
     print("Processing batches linearly (one at a time)")
     print("Monitoring for items... Press Ctrl+C to stop")
-
+    
     local lastItemCount = 0
     local batchCounter = 0
     local processingBatch = false
-
+    
     while true do
         local currentItemCount = countItemsInChest(config.inputChest)
-
+        
         if not processingBatch and currentItemCount > 0 then
             print("\nItems detected! Starting batch processing...")
-
+            
             batchCounter = batchCounter + 1
             local quantity, itemType = transferFromInputChest(config.inputChest, 16)
-
+            
             if quantity > 0 then
                 processingBatch = true
                 print("Starting Batch " .. batchCounter .. " (" .. quantity .. " x " .. (itemType or "unknown") .. ")")
-
+                
                 processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
-
+                
                 processingBatch = false
                 print("Batch " .. batchCounter .. " completed. Ready for next batch.")
             end
         end
-
+        
         lastItemCount = currentItemCount
-
+        
         if processingBatch then
             print("Processing batch " .. batchCounter .. " | Items in inventory: " .. currentItemCount)
         elseif currentItemCount > 0 then
             print("Items ready for processing: " .. currentItemCount .. " (will process up to 16)")
         elseif currentItemCount == 0 then
             print("Waiting for items in input inventory...")
+            showWaitingScreen()
         end
-
+        
         sleep(2)
     end
 end
