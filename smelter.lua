@@ -155,7 +155,7 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
 
-local function showWaitingScreen()
+local function showWaitingScreen(outputCount)
     if not monitor then return end
     
     local screenWidth, screenHeight = monitor.getSize()
@@ -215,7 +215,7 @@ local function showWaitingScreen()
     local bottomBarFg = string.rep("0", screenWidth)
     local bottomBarText = string.rep(" ", screenWidth)
     
-    local outputPercentage = 0
+    local outputPercentage = math.floor(((outputCount or 0) / 2304) * 100)
     local outputText = outputPercentage .. "%"
     local timeText = os.date("%H:%M")
     
@@ -734,7 +734,8 @@ local function autoBlaster(config)
             print("Items ready for processing: " .. currentItemCount .. " (will process up to 16)")
         elseif currentItemCount == 0 then
             print("Waiting for items in input inventory...")
-            showWaitingScreen()
+            local outputCount = countItemsInChest(config.outputChest)
+            showWaitingScreen(outputCount)
         end
         
         sleep(2)
