@@ -166,13 +166,6 @@ local function showWaitingScreen(outputCount)
     if not monitor then return end
     
     local screenWidth, screenHeight = monitor.getSize()
-    
-    if screenWidth < 30 or screenHeight < 15 then
-        monitor.setTextScale(0.5)
-    else
-        monitor.setTextScale(1.0)
-    end
-    
     monitor.clear()
     
     local headerText = "CREATE BLASTING SYSTEM"
