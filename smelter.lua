@@ -52,8 +52,12 @@ local function getAvailableInventories()
     
     for _, side in pairs(sides) do
         local peripheral_name = peripheral.getType(side)
-        if peripheral_name and string.find(peripheral_name, "chest") then
-            table.insert(inventories, {side = side, type = peripheral_name})
+        if peripheral_name then
+            -- Check if peripheral has inventory methods (list, pushItems, pullItems)
+            local wrapped = peripheral.wrap(side)
+            if wrapped and wrapped.list then
+                table.insert(inventories, {side = side, type = peripheral_name})
+            end
         end
     end
     
@@ -82,21 +86,21 @@ local function setupConfiguration()
     local inventories = getAvailableInventories()
     
     if #inventories == 0 then
-        print("No chests found! Please connect chests and restart.")
+        print("No inventories found! Please connect inventories and restart.")
         return nil
     end
     
     print("Found " .. #inventories .. " inventories:")
     
-    local inputChest = selectInventory("Select INPUT chest:", inventories)
+    local inputChest = selectInventory("Select INPUT inventory:", inventories)
     if not inputChest then
-        print("Invalid selection for input chest")
+        print("Invalid selection for input inventory")
         return nil
     end
     
-    local outputChest = selectInventory("Select OUTPUT chest:", inventories)
+    local outputChest = selectInventory("Select OUTPUT inventory:", inventories)
     if not outputChest then
-        print("Invalid selection for output chest")
+        print("Invalid selection for output inventory")
         return nil
     end
     
@@ -123,8 +127,8 @@ local function setupConfiguration()
     
     if saveConfig(config) then
         print("Configuration saved!")
-        print("Input chest: " .. inputChest)
-        print("Output chest: " .. outputChest)
+        print("Input inventory: " .. inputChest)
+        print("Output inventory: " .. outputChest)
         print("Redstone side: " .. redstoneSide)
         return config
     else
@@ -156,14 +160,14 @@ local function transferFromInputChest(inputChestSide, maxItems)
     local inputChest = peripheral.wrap(inputChestSide)
     
     if not inputChest then
-        print("Warning: No input chest found on " .. inputChestSide .. " side")
+        print("Warning: No input inventory found on " .. inputChestSide .. " side")
         return 0
     end
     
     local totalItems = countItemsInChest(inputChestSide)
     local itemsToProcess = math.min(totalItems, maxItems)
     
-    print("Input chest contains: " .. totalItems .. " items")
+    print("Input inventory contains: " .. totalItems .. " items")
     print("Processing: " .. itemsToProcess .. " items (max " .. maxItems .. " per batch)")
     
     return itemsToProcess
@@ -175,11 +179,11 @@ local function transferToOutputChest(outputChestSide)
     local outputChest = peripheral.wrap(outputChestSide)
     
     if not outputChest then
-        print("Warning: No output chest found on " .. outputChestSide .. " side")
+        print("Warning: No output inventory found on " .. outputChestSide .. " side")
         return false
     end
     
-    print("Output chest ready for items on " .. outputChestSide .. " side")
+    print("Output inventory ready for items on " .. outputChestSide .. " side")
     return true
 end
 
@@ -205,15 +209,15 @@ local function blast(inputChestSide, outputChestSide, redstoneSide)
     outputChestSide = outputChestSide or "right"
     redstoneSide = redstoneSide or "back"
     
-    -- Check input chest and get items to process (max 16)
+    -- Check input inventory and get items to process (max 16)
     local quantity = transferFromInputChest(inputChestSide, 16)
     
     if quantity == 0 then
-        print("No items to process in input chest")
+        print("No items to process in input inventory")
         return false
     end
     
-    -- Check output chest availability
+    -- Check output inventory availability
     transferToOutputChest(outputChestSide)
     
     -- Process single batch
@@ -282,7 +286,7 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide)
         if #activeBatches > 0 then
             print("Active batches: " .. #activeBatches)
         elseif totalItems == 0 then
-            print("Waiting for items in input chest...")
+            print("Waiting for items in input inventory...")
         end
         
         sleep(1) -- Check every second
@@ -291,8 +295,8 @@ end
 
 local function autoBlaster(config)
     print("=== Auto Blaster Started ===")
-    print("Input chest: " .. config.inputChest)
-    print("Output chest: " .. config.outputChest)
+    print("Input inventory: " .. config.inputChest)
+    print("Output inventory: " .. config.outputChest)
     print("Redstone side: " .. config.redstoneSide)
     print("Monitoring for items... Press Ctrl+C to stop")
     
@@ -342,7 +346,7 @@ local function autoBlaster(config)
         
         -- Show status occasionally
         if #activeBatches > 0 then
-            print("Active batches: " .. #activeBatches .. " | Items in chest: " .. currentItemCount)
+            print("Active batches: " .. #activeBatches .. " | Items in inventory: " .. currentItemCount)
         end
         
         sleep(2) -- Check every 2 seconds
@@ -369,8 +373,8 @@ local function main()
         end
     else
         print("Configuration loaded:")
-        print("  Input chest: " .. config.inputChest)
-        print("  Output chest: " .. config.outputChest)
+        print("  Input inventory: " .. config.inputChest)
+        print("  Output inventory: " .. config.outputChest)
         print("  Redstone side: " .. config.redstoneSide)
         print()
         print("To reconfigure, delete 'blaster_config.txt' and restart")
