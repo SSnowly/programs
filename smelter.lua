@@ -20,15 +20,12 @@ local function initMonitor()
         local width, height = monitor.getSize()
         print("Monitor detected: " .. width .. "x" .. height)
         
-        if width < 20 or height < 10 then
-            monitor.setTextScale(1.0)
-            print("Small monitor detected, using 1.0 scale")
-        elseif width < 40 or height < 20 then
-            monitor.setTextScale(1.5)
-            print("Medium monitor detected, using 1.5 scale")
+        if width < 30 or height < 15 then
+            monitor.setTextScale(0.5)
+            print("Small monitor detected, using 0.5 scale")
         else
-            monitor.setTextScale(2.0)
-            print("Large monitor detected, using 2.0 scale")
+            monitor.setTextScale(1.0)
+            print("Large monitor detected, using 1.0 scale")
         end
         
         monitor.setCursorPos(1, 1)
@@ -138,12 +135,12 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     monitor.write("Items Processed: " .. progress .. "/" .. maxProgress)
     
     local bottomBarBg = string.rep("8", screenWidth)
-    local bottomBarFg = string.rep("f", screenWidth)
+    local bottomBarFg = string.rep("0", screenWidth)
     local bottomBarText = string.rep(" ", screenWidth)
     
     local outputPercentage = math.floor((outputCount / 2304) * 100)
     local outputText = outputPercentage .. "%"
-    local timeText = os.date("%H:%M:%S")
+    local timeText = os.date("%H:%M")
     
     for i = 1, string.len(outputText) do
         bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
