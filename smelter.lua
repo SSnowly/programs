@@ -536,7 +536,7 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     
     -- Turn off back signal completely after 7.5s
     if redstoneSide then
-        redstone.setOutput(redstoneSide, false)
+        redstone.setOutput(redstoneSide, true)
         print("[Batch " .. batchId .. "] Back signal turned OFF - waiting for items...")
     end
     
