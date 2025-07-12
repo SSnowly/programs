@@ -60,14 +60,26 @@ end
 
 local function getAvailableInventories()
     local inventories = {}
+    
+    -- Check directly connected peripherals
     local sides = {"left", "right", "top", "bottom", "front", "back"}
     
     for _, side in pairs(sides) do
         if peripheral.isPresent(side) then
             local peripheral_name = peripheral.getType(side)
             if peripheral_name and isInventoryType(peripheral_name) then
-                table.insert(inventories, {side = side, type = peripheral_name})
+                table.insert(inventories, {side = side, type = peripheral_name, location = "direct"})
             end
+        end
+    end
+    
+    -- Check network connected peripherals
+    local networkPeripherals = peripheral.getNames()
+    
+    for _, name in pairs(networkPeripherals) do
+        local peripheral_type = peripheral.getType(name)
+        if peripheral_type and isInventoryType(peripheral_type) then
+            table.insert(inventories, {side = name, type = peripheral_type, location = "network"})
         end
     end
     
@@ -77,7 +89,8 @@ end
 local function selectInventory(prompt, inventories)
     print(prompt)
     for i, inv in pairs(inventories) do
-        print(i .. ". " .. inv.side .. " (" .. inv.type .. ")")
+        local locationText = inv.location == "direct" and "direct" or "network"
+        print(i .. ". " .. inv.side .. " (" .. inv.type .. ") [" .. locationText .. "]")
     end
     print("Enter choice (1-" .. #inventories .. "):")
     
@@ -98,6 +111,7 @@ local function setupConfiguration()
     local sides = {"left", "right", "top", "bottom", "front", "back"}
     local inventoryCount = 0
     
+    print("=== DIRECT CONNECTIONS ===")
     for _, side in pairs(sides) do
         if peripheral.isPresent(side) then
             local peripheral_name = peripheral.getType(side)
@@ -116,6 +130,24 @@ local function setupConfiguration()
             end
         else
             print(side .. ": No peripheral connected")
+        end
+    end
+    
+    print()
+    print("=== NETWORK CONNECTIONS ===")
+    local networkPeripherals = peripheral.getNames()
+    
+    for _, name in pairs(networkPeripherals) do
+        local peripheral_type = peripheral.getType(name)
+        if peripheral_type then
+            local isInventory = isInventoryType(peripheral_type)
+            
+            if isInventory then
+                print(name .. ": " .. peripheral_type .. " [INVENTORY]")
+                inventoryCount = inventoryCount + 1
+            else
+                print(name .. ": " .. peripheral_type .. " [NOT INVENTORY]")
+            end
         end
     end
     
