@@ -3,6 +3,108 @@
 -- Auto-detects items and saves configuration
 
 local CONFIG_FILE = "blaster_config.txt"
+local monitor = nil
+
+local function findMonitor()
+    -- Check for directly connected monitor
+    local sides = {"left", "right", "top", "bottom", "front", "back"}
+    for _, side in pairs(sides) do
+        if peripheral.isPresent(side) then
+            local type = peripheral.getType(side)
+            if type and string.find(type, "monitor") then
+                return peripheral.wrap(side)
+            end
+        end
+    end
+    
+    -- Check for network connected monitor
+    local networkPeripherals = peripheral.getNames()
+    for _, name in pairs(networkPeripherals) do
+        local type = peripheral.getType(name)
+        if type and string.find(type, "monitor") then
+            return peripheral.wrap(name)
+        end
+    end
+    
+    return nil
+end
+
+local function initMonitor()
+    monitor = findMonitor()
+    if monitor then
+        monitor.clear()
+        monitor.setTextScale(0.5)
+        monitor.setCursorPos(1, 1)
+        return true
+    end
+    return false
+end
+
+local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
+    if not monitor then return end
+    
+    local percentage = math.min(progress / maxProgress, 1)
+    local filledWidth = math.floor(width * percentage)
+    
+    monitor.setCursorPos(x, y)
+    monitor.setTextColor(colors.white)
+    monitor.write(label)
+    
+    monitor.setCursorPos(x, y + 1)
+    monitor.setBackgroundColor(colors.gray)
+    monitor.write(string.rep(" ", width))
+    
+    monitor.setCursorPos(x, y + 1)
+    monitor.setBackgroundColor(color)
+    monitor.write(string.rep(" ", filledWidth))
+    
+    monitor.setBackgroundColor(colors.black)
+    monitor.setCursorPos(x + width + 2, y + 1)
+    monitor.setTextColor(colors.white)
+    monitor.write(progress .. "/" .. maxProgress)
+end
+
+local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount)
+    if not monitor then return end
+    
+    monitor.clear()
+    monitor.setCursorPos(1, 1)
+    monitor.setTextColor(colors.yellow)
+    monitor.write("=== CREATE BLASTING SYSTEM ===")
+    
+    monitor.setCursorPos(1, 3)
+    monitor.setTextColor(colors.white)
+    monitor.write("Current Batch: " .. batchId)
+    
+    monitor.setCursorPos(1, 4)
+    monitor.write("Phase: " .. phase)
+    
+    -- Progress bar based on phase
+    local barColor = colors.blue
+    if phase == "Processing" then
+        barColor = colors.orange
+    elseif phase == "Waiting for Items" then
+        barColor = colors.red
+    elseif phase == "Complete" then
+        barColor = colors.green
+    end
+    
+    drawProgressBar(1, 6, 30, progress, maxProgress, "Progress:", barColor)
+    
+    -- Input/Output status
+    monitor.setCursorPos(1, 9)
+    monitor.setTextColor(colors.cyan)
+    monitor.write("Input Chest: " .. inputCount .. " items")
+    
+    monitor.setCursorPos(1, 10)
+    monitor.setTextColor(colors.lime)
+    monitor.write("Output Chest: " .. outputCount .. " items")
+    
+    -- Time display
+    monitor.setCursorPos(1, 12)
+    monitor.setTextColor(colors.lightGray)
+    monitor.write("Time: " .. os.date("%H:%M:%S"))
+end
 
 local function getBlastTime(quantity)
     if quantity >= 1 and quantity <= 16 then
@@ -275,7 +377,7 @@ local function transferToOutputChest(outputChestSide)
     return true
 end
 
-local function waitForOutputItems(outputChestSide, expectedItems, batchId)
+local function waitForOutputItems(outputChestSide, expectedItems, batchId, inputChestSide)
     local outputChest = peripheral.wrap(outputChestSide)
     if not outputChest then
         print("[Batch " .. batchId .. "] Error: Cannot access output chest")
@@ -290,14 +392,20 @@ local function waitForOutputItems(outputChestSide, expectedItems, batchId)
     while true do
         local currentItems = countItemsInChest(outputChestSide)
         local elapsedTime = os.clock() - startTime
+        local inputCount = countItemsInChest(inputChestSide)
+        
+        -- Update monitor display
+        updateMonitorDisplay(batchId, "Waiting for Items", currentItems, expectedItems, inputCount, currentItems)
         
         if currentItems >= expectedItems then
             print("[Batch " .. batchId .. "] Found " .. currentItems .. " items in output chest!")
+            updateMonitorDisplay(batchId, "Complete", expectedItems, expectedItems, inputCount, currentItems)
             return true
         end
         
         if elapsedTime > maxWaitTime then
             print("[Batch " .. batchId .. "] Timeout waiting for items (waited " .. maxWaitTime .. "s)")
+            updateMonitorDisplay(batchId, "Timeout", currentItems, expectedItems, inputCount, currentItems)
             return false
         end
         
@@ -368,19 +476,35 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     local initialUnprocessed = getUnprocessedItemCount(outputChestSide)
     print("[Batch " .. batchId .. "] Initial unprocessed items in output: " .. initialUnprocessed)
     
+    local inputCount = countItemsInChest(inputChestSide)
+    local outputCount = countItemsInChest(outputChestSide)
+    
+    -- Update monitor for start
+    updateMonitorDisplay(batchId, "Starting", 0, 100, inputCount, outputCount)
+    
     -- Send flow control pulse to allow items out
     if flowControlSide then
         sendRedstonePulse(flowControlSide, 4)
         print("[Batch " .. batchId .. "] Flow control pulse sent - allowing items out")
     end
     
-    -- Wait 7.5 seconds for processing to start
+    -- Wait 7.5 seconds for processing to start with progress updates
     print("[Batch " .. batchId .. "] Waiting 7.5s for processing...")
-    sleep(7.5)
+    for i = 1, 15 do
+        local progress = (i / 15) * 100
+        updateMonitorDisplay(batchId, "Processing", progress, 100, countItemsInChest(inputChestSide), countItemsInChest(outputChestSide))
+        sleep(0.5)
+    end
+    
+    -- Turn off back signal completely after 7.5s
+    if redstoneSide then
+        redstone.setOutput(redstoneSide, false)
+        print("[Batch " .. batchId .. "] Back signal turned OFF - waiting for items...")
+    end
     
     -- Wait for the expected number of items to appear in output
     local expectedTotal = initialUnprocessed + quantity
-    local success = waitForOutputItems(outputChestSide, expectedTotal, batchId)
+    local success = waitForOutputItems(outputChestSide, expectedTotal, batchId, inputChestSide)
     
     if success then
         -- Mark the new items as processed
@@ -562,6 +686,13 @@ local function main()
     print("Blast times per batch (max 16 items):")
     print("  1-16 items: 7.5s")
     print()
+    
+    -- Initialize monitor
+    if initMonitor() then
+        print("Monitor connected and initialized!")
+    else
+        print("No monitor found - running without visual display")
+    end
     
     -- Start auto blaster
     autoBlaster(config)
