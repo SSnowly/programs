@@ -76,7 +76,7 @@ end
 
 
 
-local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount)
+local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount, batchSize)
     if not monitor then return end
     
     local screenWidth, screenHeight = monitor.getSize()
@@ -122,17 +122,24 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         barColor = colors.lime
     end
     
-    local progressBarWidth = math.min(25, screenWidth - 12)
+    local progressBarWidth = math.min(20, screenWidth - 20)
     drawProgressBar(1, 5, progressBarWidth, progress, maxProgress, "Progress:", barColor)
     
     monitor.setCursorPos(1, 8)
     monitor.setTextColor(colors.cyan)
     monitor.setBackgroundColor(colors.black)
-    monitor.write("Batch Size: " .. maxProgress .. " items")
+    monitor.write("Batch Size: " .. (batchSize or maxProgress) .. " items")
+    
+    local itemsProcessed = 0
+    if phase == "Complete" then
+        itemsProcessed = batchSize or maxProgress
+    elseif phase == "Waiting for Items" then
+        itemsProcessed = math.max(0, progress - (batchSize or maxProgress))
+    end
     
     monitor.setCursorPos(1, 10)
     monitor.setTextColor(colors.yellow)
-    monitor.write("Items Processed: " .. progress .. "/" .. maxProgress)
+    monitor.write("Items Processed: " .. itemsProcessed .. "/" .. (batchSize or maxProgress))
     
     local bottomBarBg = string.rep("8", screenWidth)
     local bottomBarFg = string.rep("0", screenWidth)
@@ -199,21 +206,40 @@ local function showWaitingScreen(outputCount)
     monitor.setTextColor(colors.yellow)
     monitor.write("Waiting for Items...")
     
-    local animation = {"[    ]", "[=   ]", "[==  ]", "[=== ]", "[====]", "[ ===]", "[  ==]", "[   =]"}
-    local animIndex = math.floor(os.clock() * 2) % #animation + 1
-    
     if screenHeight > startY + 4 then
         monitor.setCursorPos(2, startY + 4)
         monitor.setTextColor(colors.orange)
-        monitor.write("Status: " .. animation[animIndex])
+        monitor.write("Status:")
+        
+        local barWidth = math.min(20, screenWidth - 12)
+        local time = os.clock()
+        local cycle = time % 4
+        local position = 0
+        
+        if cycle < 2 then
+            position = math.floor((cycle / 2) * barWidth)
+        else
+            position = math.floor(((4 - cycle) / 2) * barWidth)
+        end
+        
+        local statusBarText = string.rep(" ", barWidth)
+        local statusBarBg = string.rep("8", barWidth)
+        local statusBarFg = string.rep("0", barWidth)
+        
+        if position >= 0 and position < barWidth then
+            statusBarBg = string.sub(statusBarBg, 1, position) .. "d" .. string.sub(statusBarBg, position + 2, -1)
+        end
+        
+        monitor.setCursorPos(2, startY + 5)
+        monitor.blit(statusBarText, statusBarFg, statusBarBg)
     end
     
-    if screenHeight > startY + 6 then
-        monitor.setCursorPos(2, startY + 6)
+    if screenHeight > startY + 7 then
+        monitor.setCursorPos(2, startY + 7)
         monitor.setTextColor(colors.cyan)
         monitor.write("Network: Active")
         
-        monitor.setCursorPos(2, startY + 7)
+        monitor.setCursorPos(2, startY + 8)
         monitor.setTextColor(colors.lightBlue)
         monitor.write("System: Online")
     end
@@ -523,17 +549,17 @@ local function waitForOutputItems(outputChestSide, expectedItems, batchId, input
         local elapsedTime = os.clock() - startTime
         local inputCount = countItemsInChest(inputChestSide)
 
-        updateMonitorDisplay(batchId, "Waiting for Items", currentItems, expectedItems, inputCount, currentItems)
+        updateMonitorDisplay(batchId, "Waiting for Items", currentItems, expectedItems, inputCount, currentItems, quantity)
 
         if currentItems >= expectedItems then
             print("[Batch " .. batchId .. "] Found " .. currentItems .. " items in output chest!")
-            updateMonitorDisplay(batchId, "Complete", expectedItems, expectedItems, inputCount, currentItems)
+            updateMonitorDisplay(batchId, "Complete", expectedItems, expectedItems, inputCount, currentItems, quantity)
             return true
         end
 
         if elapsedTime > maxWaitTime then
             print("[Batch " .. batchId .. "] Timeout waiting for items (waited " .. maxWaitTime .. "s)")
-            updateMonitorDisplay(batchId, "Timeout", currentItems, expectedItems, inputCount, currentItems)
+            updateMonitorDisplay(batchId, "Timeout", currentItems, expectedItems, inputCount, currentItems, quantity)
             return false
         end
 
@@ -604,7 +630,7 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     local inputCount = countItemsInChest(inputChestSide)
     local outputCount = countItemsInChest(outputChestSide)
 
-    updateMonitorDisplay(batchId, "Starting", 0, 100, inputCount, outputCount)
+    updateMonitorDisplay(batchId, "Starting", 0, 100, inputCount, outputCount, quantity)
 
     if flowControlSide then
         sendRedstonePulse(flowControlSide, 7)
@@ -614,7 +640,7 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     print("[Batch " .. batchId .. "] Waiting 7.5s for processing...")
     for i = 1, 15 do
         local progress = math.floor((i / 15) * 100)
-        updateMonitorDisplay(batchId, "Processing", progress, 100, countItemsInChest(inputChestSide), countItemsInChest(outputChestSide))
+        updateMonitorDisplay(batchId, "Processing", progress, 100, countItemsInChest(inputChestSide), countItemsInChest(outputChestSide), quantity)
         sleep(0.5)
     end
 
