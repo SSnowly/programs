@@ -93,11 +93,17 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         headerText = "BLASTER"
     end
     
-    local headerBg = string.rep("4", string.len(headerText))
-    local headerFg = string.rep("f", string.len(headerText))
+    local headerBarBg = string.rep("4", screenWidth)
+    local headerBarFg = string.rep("f", screenWidth)
+    local headerBarText = string.rep(" ", screenWidth)
+    
+    local headerStart = math.floor((screenWidth - string.len(headerText)) / 2) + 1
+    for i = 1, string.len(headerText) do
+        headerBarText = string.sub(headerBarText, 1, headerStart + i - 2) .. string.sub(headerText, i, i) .. string.sub(headerBarText, headerStart + i, -1)
+    end
     
     monitor.setCursorPos(1, 1)
-    monitor.blit(headerText, headerFg, headerBg)
+    monitor.blit(headerBarText, headerBarFg, headerBarBg)
     
     monitor.setCursorPos(1, 3)
     monitor.setTextColor(colors.white)
@@ -131,11 +137,25 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     monitor.setTextColor(colors.yellow)
     monitor.write("Items Processed: " .. progress .. "/" .. maxProgress)
     
-    local timeY = math.min(12, screenHeight - 1)
-    monitor.setCursorPos(1, timeY)
-    monitor.setTextColor(colors.lightGray)
-    monitor.setBackgroundColor(colors.black)
-    monitor.write("Time: " .. os.date("%H:%M:%S"))
+    local bottomBarBg = string.rep("8", screenWidth)
+    local bottomBarFg = string.rep("f", screenWidth)
+    local bottomBarText = string.rep(" ", screenWidth)
+    
+    local outputPercentage = math.floor((outputCount / 2304) * 100)
+    local outputText = outputPercentage .. "%"
+    local timeText = os.date("%H:%M:%S")
+    
+    for i = 1, string.len(outputText) do
+        bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
+    end
+    
+    local timeStart = screenWidth - string.len(timeText) + 1
+    for i = 1, string.len(timeText) do
+        bottomBarText = string.sub(bottomBarText, 1, timeStart + i - 2) .. string.sub(timeText, i, i) .. string.sub(bottomBarText, timeStart + i, -1)
+    end
+    
+    monitor.setCursorPos(1, screenHeight)
+    monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
 
 local function showWaitingScreen()
