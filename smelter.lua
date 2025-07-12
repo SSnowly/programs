@@ -280,10 +280,10 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     
     print("[Batch " .. batchId .. "] Starting - " .. quantity .. " items (" .. blastTime .. "s)")
     
-    -- Turn ON flow control redstone to allow items out
+    -- Send flow control pulse to allow items out
     if flowControlSide then
         sendRedstonePulse(flowControlSide, 6)
-        print("[Batch " .. batchId .. "] Flow control ON - allowing items out")
+        print("[Batch " .. batchId .. "] Flow control pulse sent - allowing items out")
     end
     
     -- Wait for blasting to complete
@@ -293,12 +293,6 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     
     -- Send 10-tick redstone pulse for completion
     sendRedstonePulse(redstoneSide, 10)
-    
-    -- Turn OFF flow control redstone to stop item flow
-    if flowControlSide then
-        redstone.setOutput(flowControlSide, false)
-        print("[Batch " .. batchId .. "] Flow control OFF - stopping item flow")
-    end
     
     print("[Batch " .. batchId .. "] Finished")
     return true
@@ -324,67 +318,59 @@ local function blast(inputChestSide, outputChestSide, redstoneSide, flowControlS
     return processBatch(1, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
 end
 
-local function blastContinuous(inputChestSide, outputChestSide, redstoneSide)
+local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, flowControlSide)
     inputChestSide = inputChestSide or "left"
     outputChestSide = outputChestSide or "right"
     redstoneSide = redstoneSide or "back"
     
     print("Starting continuous blasting mode...")
     print("Press Ctrl+C to stop")
-    print("Multiple batches can run simultaneously")
+    print("Processing batches linearly (one at a time)")
     
     local batchCounter = 0
-    local activeBatches = {}
+    local processingBatch = false
     
     while true do
         local totalItems = countItemsInChest(inputChestSide)
         
-        if totalItems >= 16 then
+        -- Only start new batch if not currently processing
+        if not processingBatch and totalItems >= 16 then
             -- Start new batch if we have enough items
             batchCounter = batchCounter + 1
             local quantity = transferFromInputChest(inputChestSide, 16)
             
             if quantity > 0 then
+                processingBatch = true
                 print("\n--- Starting Batch " .. batchCounter .. " ---")
                 
-                -- Start batch processing in parallel
-                local co = coroutine.create(function()
-                    processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, config.flowControlSide)
-                end)
+                -- Process batch linearly (wait for completion)
+                processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
                 
-                table.insert(activeBatches, co)
-                coroutine.resume(co)
+                processingBatch = false
+                print("Batch " .. batchCounter .. " completed. Ready for next batch.")
             end
-        elseif totalItems > 0 and totalItems < 16 then
+        elseif not processingBatch and totalItems > 0 and totalItems < 16 then
             -- Process remaining items if less than 16
             batchCounter = batchCounter + 1
             local quantity = transferFromInputChest(inputChestSide, totalItems)
             
             if quantity > 0 then
+                processingBatch = true
                 print("\n--- Starting Final Batch " .. batchCounter .. " (" .. quantity .. " items) ---")
                 
-                local co = coroutine.create(function()
-                    processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, nil)
-                end)
+                -- Process batch linearly (wait for completion)
+                processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
                 
-                table.insert(activeBatches, co)
-                coroutine.resume(co)
-            end
-        end
-        
-        -- Resume all active batches
-        for i = #activeBatches, 1, -1 do
-            local co = activeBatches[i]
-            if coroutine.status(co) == "suspended" then
-                coroutine.resume(co)
-            elseif coroutine.status(co) == "dead" then
-                table.remove(activeBatches, i)
+                processingBatch = false
+                print("Final batch " .. batchCounter .. " completed.")
             end
         end
         
         -- Show status
-        if #activeBatches > 0 then
-            print("Active batches: " .. #activeBatches)
+        if processingBatch then
+            print("Processing batch " .. batchCounter .. " | Items remaining: " .. countItemsInChest(inputChestSide))
+        elseif totalItems > 0 and totalItems < 16 then
+            print("Waiting for more items (" .. totalItems .. "/16) | Need " .. (16 - totalItems) .. " more")
         elseif totalItems == 0 then
             print("Waiting for items in input inventory...")
         end
@@ -399,55 +385,44 @@ local function autoBlaster(config)
     print("Output inventory: " .. config.outputChest)
     print("Redstone side: " .. config.redstoneSide)
     print("Flow control side: " .. (config.flowControlSide or "none"))
+    print("Processing batches linearly (one at a time)")
     print("Monitoring for items... Press Ctrl+C to stop")
     
     local lastItemCount = 0
     local batchCounter = 0
-    local activeBatches = {}
+    local processingBatch = false
     
     while true do
         local currentItemCount = countItemsInChest(config.inputChest)
         
-        -- Detect when items are added
-        if currentItemCount > lastItemCount and currentItemCount >= 16 then
+        -- Only start new batch if not currently processing and items are available
+        if not processingBatch and currentItemCount >= 16 then
             print("\nItems detected! Starting batch processing...")
             
-            -- Process all available items in 16-item batches
-            while countItemsInChest(config.inputChest) >= 16 do
-                batchCounter = batchCounter + 1
-                local quantity = transferFromInputChest(config.inputChest, 16)
+            batchCounter = batchCounter + 1
+            local quantity = transferFromInputChest(config.inputChest, 16)
+            
+            if quantity > 0 then
+                processingBatch = true
+                print("Starting Batch " .. batchCounter .. " (" .. quantity .. " items)")
                 
-                if quantity > 0 then
-                    print("Starting Batch " .. batchCounter .. " (" .. quantity .. " items)")
-                    
-                    -- Start batch processing in parallel
-                    local co = coroutine.create(function()
-                        processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
-                    end)
-                    
-                    table.insert(activeBatches, co)
-                    coroutine.resume(co)
-                end
+                -- Process batch linearly (wait for completion)
+                processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
                 
-                sleep(0.1) -- Small delay between batch starts
-            end
-        end
-        
-        -- Resume all active batches
-        for i = #activeBatches, 1, -1 do
-            local co = activeBatches[i]
-            if coroutine.status(co) == "suspended" then
-                coroutine.resume(co)
-            elseif coroutine.status(co) == "dead" then
-                table.remove(activeBatches, i)
+                processingBatch = false
+                print("Batch " .. batchCounter .. " completed. Ready for next batch.")
             end
         end
         
         lastItemCount = currentItemCount
         
-        -- Show status occasionally
-        if #activeBatches > 0 then
-            print("Active batches: " .. #activeBatches .. " | Items in inventory: " .. currentItemCount)
+        -- Show status
+        if processingBatch then
+            print("Processing batch " .. batchCounter .. " | Items in inventory: " .. currentItemCount)
+        elseif currentItemCount > 0 and currentItemCount < 16 then
+            print("Waiting for more items (" .. currentItemCount .. "/16) | Need " .. (16 - currentItemCount) .. " more")
+        elseif currentItemCount == 0 then
+            print("Waiting for items in input inventory...")
         end
         
         sleep(2) -- Check every 2 seconds
