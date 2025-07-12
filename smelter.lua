@@ -282,7 +282,7 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     
     -- Turn ON flow control redstone to allow items out
     if flowControlSide then
-        redstone.setOutput(flowControlSide, true)
+        sendRedstonePulse(flowControlSide, 6)
         print("[Batch " .. batchId .. "] Flow control ON - allowing items out")
     end
     
