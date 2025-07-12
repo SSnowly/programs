@@ -17,7 +17,17 @@ local function initMonitor()
     monitor = findMonitor()
     if monitor then
         monitor.clear()
-        monitor.setTextScale(1.0)
+        local width, height = monitor.getSize()
+        print("Monitor detected: " .. width .. "x" .. height)
+        
+        if width < 30 or height < 15 then
+            monitor.setTextScale(0.5)
+            print("Small monitor detected, using 0.5 scale")
+        else
+            monitor.setTextScale(1.0)
+            print("Large monitor detected, using 1.0 scale")
+        end
+        
         monitor.setCursorPos(1, 1)
         return true
     end
@@ -27,17 +37,21 @@ end
 local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
     if not monitor then return end
     
+    local screenWidth, screenHeight = monitor.getSize()
+    local maxBarWidth = screenWidth - x - 15
+    local actualWidth = math.min(width, maxBarWidth)
+    
     local percentage = math.min(progress / maxProgress, 1)
-    local filledWidth = math.floor(width * percentage)
+    local filledWidth = math.floor(actualWidth * percentage)
     local percentageText = math.floor(percentage * 100) .. "%"
     
     monitor.setCursorPos(x, y)
     monitor.setTextColor(colors.yellow)
     monitor.write(label)
     
-    local barText = string.rep(" ", width)
-    local barBg = string.rep("7", width)
-    local barFg = string.rep("0", width)
+    local barText = string.rep(" ", actualWidth)
+    local barBg = string.rep("7", actualWidth)
+    local barFg = string.rep("0", actualWidth)
     
     if filledWidth > 0 then
         local colorChar = "0"
@@ -48,13 +62,13 @@ local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
         elseif color == colors.blue then colorChar = "b"
         end
         
-        barBg = string.rep(colorChar, filledWidth) .. string.rep("7", width - filledWidth)
+        barBg = string.rep(colorChar, filledWidth) .. string.rep("7", actualWidth - filledWidth)
     end
     
     monitor.setCursorPos(x, y + 1)
     monitor.blit(barText, barFg, barBg)
     
-    monitor.setCursorPos(x + width + 2, y + 1)
+    monitor.setCursorPos(x + actualWidth + 2, y + 1)
     monitor.setTextColor(colors.white)
     monitor.setBackgroundColor(colors.black)
     monitor.write(percentageText .. " (" .. progress .. "/" .. maxProgress .. ")")
@@ -63,7 +77,10 @@ end
 local function drawInventoryDisplay(x, y, label, count, maxCount, color)
     if not monitor then return end
     
-    local width = 20
+    local screenWidth, screenHeight = monitor.getSize()
+    local maxBarWidth = screenWidth - x - 2
+    local width = math.min(20, maxBarWidth)
+    
     local percentage = maxCount > 0 and math.min(count / maxCount, 1) or 0
     local filledWidth = math.floor(width * percentage)
     local percentageText = math.floor(percentage * 100) .. "%"
@@ -92,15 +109,27 @@ local function drawInventoryDisplay(x, y, label, count, maxCount, color)
     monitor.setCursorPos(x, y + 2)
     monitor.setTextColor(colors.white)
     monitor.setBackgroundColor(colors.black)
-    monitor.write(count .. " items " .. percentageText)
+    local itemText = count .. " items " .. percentageText
+    if string.len(itemText) > screenWidth - x then
+        itemText = count .. " " .. percentageText
+    end
+    monitor.write(itemText)
 end
 
 local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount)
     if not monitor then return end
     
+    local screenWidth, screenHeight = monitor.getSize()
     monitor.clear()
     
     local headerText = "CREATE BLASTING SYSTEM"
+    if string.len(headerText) > screenWidth then
+        headerText = "BLASTING SYSTEM"
+    end
+    if string.len(headerText) > screenWidth then
+        headerText = "BLASTER"
+    end
+    
     local headerBg = string.rep("4", string.len(headerText))
     local headerFg = string.rep("f", string.len(headerText))
     
@@ -110,7 +139,11 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     monitor.setCursorPos(1, 3)
     monitor.setTextColor(colors.white)
     monitor.setBackgroundColor(colors.black)
-    monitor.write("Batch #" .. batchId .. " | Phase: " .. phase)
+    local statusText = "Batch #" .. batchId .. " | Phase: " .. phase
+    if string.len(statusText) > screenWidth then
+        statusText = "B" .. batchId .. " | " .. phase
+    end
+    monitor.write(statusText)
     
     local barColor = colors.blue
     if phase == "Processing" then
@@ -123,12 +156,22 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         barColor = colors.lime
     end
     
-    drawProgressBar(1, 5, 25, progress, maxProgress, "Progress:", barColor)
+    local progressBarWidth = math.min(25, screenWidth - 12)
+    drawProgressBar(1, 5, progressBarWidth, progress, maxProgress, "Progress:", barColor)
     
-    drawInventoryDisplay(1, 8, "Input Storage:", inputCount, 2304, colors.cyan)
-    drawInventoryDisplay(1, 12, "Output Storage:", outputCount, 2304, colors.lime)
+    local inventoryY1 = math.min(8, screenHeight - 8)
+    local inventoryY2 = math.min(12, screenHeight - 4)
     
-    monitor.setCursorPos(1, 16)
+    if screenHeight >= 16 then
+        drawInventoryDisplay(1, inventoryY1, "Input Storage:", inputCount, 2304, colors.cyan)
+        drawInventoryDisplay(1, inventoryY2, "Output Storage:", outputCount, 2304, colors.lime)
+    else
+        drawInventoryDisplay(1, inventoryY1, "Input:", inputCount, 2304, colors.cyan)
+        drawInventoryDisplay(1, inventoryY2, "Output:", outputCount, 2304, colors.lime)
+    end
+    
+    local timeY = math.min(16, screenHeight - 1)
+    monitor.setCursorPos(1, timeY)
     monitor.setTextColor(colors.lightGray)
     monitor.setBackgroundColor(colors.black)
     monitor.write("Time: " .. os.date("%H:%M:%S"))
@@ -137,48 +180,68 @@ end
 local function showWaitingScreen()
     if not monitor then return end
     
+    local screenWidth, screenHeight = monitor.getSize()
     monitor.clear()
     
     local title = "BLASTING SYSTEM"
+    if string.len(title) > screenWidth - 2 then
+        title = "BLASTER"
+    end
+    
     local subtitle = "Ready for Operation"
+    if string.len(subtitle) > screenWidth - 2 then
+        subtitle = "Ready"
+    end
+    
     local status = "Waiting for Items..."
+    if string.len(status) > screenWidth - 2 then
+        status = "Waiting..."
+    end
     
     local titleBg = string.rep("4", string.len(title))
     local titleFg = string.rep("f", string.len(title))
     
-    monitor.setCursorPos(2, 2)
+    local startY = math.max(1, math.floor(screenHeight / 6))
+    
+    monitor.setCursorPos(2, startY)
     monitor.blit(title, titleFg, titleBg)
     
-    monitor.setCursorPos(2, 4)
+    monitor.setCursorPos(2, startY + 2)
     monitor.setTextColor(colors.lime)
     monitor.setBackgroundColor(colors.black)
     monitor.write(subtitle)
     
-    monitor.setCursorPos(2, 6)
+    monitor.setCursorPos(2, startY + 4)
     monitor.setTextColor(colors.yellow)
     monitor.write(status)
     
     local animation = {"[    ]", "[=   ]", "[==  ]", "[=== ]", "[====]", "[ ===]", "[  ==]", "[   =]"}
     local animIndex = math.floor(os.clock() * 2) % #animation + 1
     
-    monitor.setCursorPos(2, 8)
-    monitor.setTextColor(colors.orange)
-    monitor.write("Status: " .. animation[animIndex])
+    if screenHeight > startY + 6 then
+        monitor.setCursorPos(2, startY + 6)
+        monitor.setTextColor(colors.orange)
+        monitor.write("Status: " .. animation[animIndex])
+    end
     
-    monitor.setCursorPos(2, 10)
-    monitor.setTextColor(colors.cyan)
-    monitor.write("Network: Active")
+    if screenHeight > startY + 8 then
+        monitor.setCursorPos(2, startY + 8)
+        monitor.setTextColor(colors.cyan)
+        monitor.write("Network: Active")
+        
+        monitor.setCursorPos(2, startY + 9)
+        monitor.setTextColor(colors.lightBlue)
+        monitor.write("System: Online")
+    end
     
-    monitor.setCursorPos(2, 11)
-    monitor.setTextColor(colors.lightBlue)
-    monitor.write("System: Online")
-    
-    monitor.setCursorPos(2, 13)
+    local timeY = math.min(startY + 11, screenHeight - 2)
+    monitor.setCursorPos(2, timeY)
     monitor.setTextColor(colors.lightGray)
     monitor.write("Time: " .. os.date("%H:%M:%S"))
     
-    local border = string.rep("=", 25)
-    monitor.setCursorPos(1, 15)
+    local borderWidth = math.min(25, screenWidth - 2)
+    local border = string.rep("=", borderWidth)
+    monitor.setCursorPos(1, screenHeight - 1)
     monitor.setTextColor(colors.gray)
     monitor.write(border)
 end
