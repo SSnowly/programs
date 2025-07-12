@@ -20,12 +20,15 @@ local function initMonitor()
         local width, height = monitor.getSize()
         print("Monitor detected: " .. width .. "x" .. height)
         
-        if width < 30 or height < 15 then
-            monitor.setTextScale(0.5)
-            print("Small monitor detected, using 0.5 scale")
-        else
+        if width < 20 or height < 10 then
             monitor.setTextScale(1.0)
-            print("Large monitor detected, using 1.0 scale")
+            print("Small monitor detected, using 1.0 scale")
+        elseif width < 40 or height < 20 then
+            monitor.setTextScale(1.5)
+            print("Medium monitor detected, using 1.5 scale")
+        else
+            monitor.setTextScale(2.0)
+            print("Large monitor detected, using 2.0 scale")
         end
         
         monitor.setCursorPos(1, 1)
