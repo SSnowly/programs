@@ -275,10 +275,98 @@ local function transferToOutputChest(outputChestSide)
     return true
 end
 
-local function processBatch(batchId, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
-    local blastTime = getBlastTime(quantity)
+local function waitForOutputItems(outputChestSide, expectedItems, batchId)
+    local outputChest = peripheral.wrap(outputChestSide)
+    if not outputChest then
+        print("[Batch " .. batchId .. "] Error: Cannot access output chest")
+        return false
+    end
     
-    print("[Batch " .. batchId .. "] Starting - " .. quantity .. " items (" .. blastTime .. "s)")
+    local startTime = os.clock()
+    local maxWaitTime = 30 -- Maximum 30 seconds to wait
+    
+    print("[Batch " .. batchId .. "] Waiting for " .. expectedItems .. " items to appear in output...")
+    
+    while true do
+        local currentItems = countItemsInChest(outputChestSide)
+        local elapsedTime = os.clock() - startTime
+        
+        if currentItems >= expectedItems then
+            print("[Batch " .. batchId .. "] Found " .. currentItems .. " items in output chest!")
+            return true
+        end
+        
+        if elapsedTime > maxWaitTime then
+            print("[Batch " .. batchId .. "] Timeout waiting for items (waited " .. maxWaitTime .. "s)")
+            return false
+        end
+        
+        -- Show progress every 2 seconds
+        if math.floor(elapsedTime) % 2 == 0 then
+            print("[Batch " .. batchId .. "] Waiting... (" .. currentItems .. "/" .. expectedItems .. " items, " .. math.floor(elapsedTime) .. "s elapsed)")
+        end
+        
+        sleep(0.5) -- Check every 0.5 seconds
+    end
+end
+
+local function markOutputItems(outputChestSide, itemsToMark, batchId)
+    local outputChest = peripheral.wrap(outputChestSide)
+    if not outputChest then
+        print("[Batch " .. batchId .. "] Error: Cannot access output chest for marking")
+        return false
+    end
+    
+    print("[Batch " .. batchId .. "] Marking " .. itemsToMark .. " items as processed")
+    
+    -- Create a marker file to track processed items
+    local markerFile = "processed_items.txt"
+    local processedCount = 0
+    
+    if fs.exists(markerFile) then
+        local file = fs.open(markerFile, "r")
+        if file then
+            processedCount = tonumber(file.readAll()) or 0
+            file.close()
+        end
+    end
+    
+    processedCount = processedCount + itemsToMark
+    
+    local file = fs.open(markerFile, "w")
+    if file then
+        file.write(tostring(processedCount))
+        file.close()
+        print("[Batch " .. batchId .. "] Total processed items: " .. processedCount)
+        return true
+    else
+        print("[Batch " .. batchId .. "] Error: Could not update processed items count")
+        return false
+    end
+end
+
+local function getUnprocessedItemCount(outputChestSide)
+    local totalItems = countItemsInChest(outputChestSide)
+    local processedCount = 0
+    
+    local markerFile = "processed_items.txt"
+    if fs.exists(markerFile) then
+        local file = fs.open(markerFile, "r")
+        if file then
+            processedCount = tonumber(file.readAll()) or 0
+            file.close()
+        end
+    end
+    
+    return math.max(0, totalItems - processedCount)
+end
+
+local function processBatch(batchId, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
+    print("[Batch " .. batchId .. "] Starting - " .. quantity .. " items")
+    
+    -- Record initial unprocessed item count in output
+    local initialUnprocessed = getUnprocessedItemCount(outputChestSide)
+    print("[Batch " .. batchId .. "] Initial unprocessed items in output: " .. initialUnprocessed)
     
     -- Send flow control pulse to allow items out
     if flowControlSide then
@@ -286,16 +374,29 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
         print("[Batch " .. batchId .. "] Flow control pulse sent - allowing items out")
     end
     
-    -- Wait for blasting to complete
-    sleep(blastTime)
+    -- Wait 7.5 seconds for processing to start
+    print("[Batch " .. batchId .. "] Waiting 7.5s for processing...")
+    sleep(7.5)
     
-    print("[Batch " .. batchId .. "] Complete! Sending completion pulse...")
+    -- Wait for the expected number of items to appear in output
+    local expectedTotal = initialUnprocessed + quantity
+    local success = waitForOutputItems(outputChestSide, expectedTotal, batchId)
     
-    -- Send 10-tick redstone pulse for completion
-    sendRedstonePulse(redstoneSide, 10)
-    
-    print("[Batch " .. batchId .. "] Finished")
-    return true
+    if success then
+        -- Mark the new items as processed
+        markOutputItems(outputChestSide, quantity, batchId)
+        
+        print("[Batch " .. batchId .. "] Complete! Sending completion pulse...")
+        
+        -- Send 10-tick redstone pulse for completion
+        sendRedstonePulse(redstoneSide, 10)
+        
+        print("[Batch " .. batchId .. "] Finished successfully")
+        return true
+    else
+        print("[Batch " .. batchId .. "] Failed - items did not appear in time")
+        return false
+    end
 end
 
 local function blast(inputChestSide, outputChestSide, redstoneSide, flowControlSide)
