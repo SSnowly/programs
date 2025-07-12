@@ -161,67 +161,75 @@ local function showWaitingScreen()
     local screenWidth, screenHeight = monitor.getSize()
     monitor.clear()
     
-    local title = "BLASTING SYSTEM"
-    if string.len(title) > screenWidth - 2 then
-        title = "BLASTER"
+    local headerText = "CREATE BLASTING SYSTEM"
+    if string.len(headerText) > screenWidth then
+        headerText = "BLASTING SYSTEM"
+    end
+    if string.len(headerText) > screenWidth then
+        headerText = "BLASTER"
     end
     
-    local subtitle = "Ready for Operation"
-    if string.len(subtitle) > screenWidth - 2 then
-        subtitle = "Ready"
+    local headerBarBg = string.rep("4", screenWidth)
+    local headerBarFg = string.rep("f", screenWidth)
+    local headerBarText = string.rep(" ", screenWidth)
+    
+    local headerStart = math.floor((screenWidth - string.len(headerText)) / 2) + 1
+    for i = 1, string.len(headerText) do
+        headerBarText = string.sub(headerBarText, 1, headerStart + i - 2) .. string.sub(headerText, i, i) .. string.sub(headerBarText, headerStart + i, -1)
     end
     
-    local status = "Waiting for Items..."
-    if string.len(status) > screenWidth - 2 then
-        status = "Waiting..."
-    end
+    monitor.setCursorPos(1, 1)
+    monitor.blit(headerBarText, headerBarFg, headerBarBg)
     
-    local titleBg = string.rep("4", string.len(title))
-    local titleFg = string.rep("f", string.len(title))
-    
-    local startY = math.max(1, math.floor(screenHeight / 6))
+    local startY = math.max(3, math.floor(screenHeight / 4))
     
     monitor.setCursorPos(2, startY)
-    monitor.blit(title, titleFg, titleBg)
-    
-    monitor.setCursorPos(2, startY + 2)
     monitor.setTextColor(colors.lime)
     monitor.setBackgroundColor(colors.black)
-    monitor.write(subtitle)
+    monitor.write("Ready for Operation")
     
-    monitor.setCursorPos(2, startY + 4)
+    monitor.setCursorPos(2, startY + 2)
     monitor.setTextColor(colors.yellow)
-    monitor.write(status)
+    monitor.write("Waiting for Items...")
     
     local animation = {"[    ]", "[=   ]", "[==  ]", "[=== ]", "[====]", "[ ===]", "[  ==]", "[   =]"}
     local animIndex = math.floor(os.clock() * 2) % #animation + 1
     
-    if screenHeight > startY + 6 then
-        monitor.setCursorPos(2, startY + 6)
+    if screenHeight > startY + 4 then
+        monitor.setCursorPos(2, startY + 4)
         monitor.setTextColor(colors.orange)
         monitor.write("Status: " .. animation[animIndex])
     end
     
-    if screenHeight > startY + 8 then
-        monitor.setCursorPos(2, startY + 8)
+    if screenHeight > startY + 6 then
+        monitor.setCursorPos(2, startY + 6)
         monitor.setTextColor(colors.cyan)
         monitor.write("Network: Active")
         
-        monitor.setCursorPos(2, startY + 9)
+        monitor.setCursorPos(2, startY + 7)
         monitor.setTextColor(colors.lightBlue)
         monitor.write("System: Online")
     end
     
-    local timeY = math.min(startY + 11, screenHeight - 2)
-    monitor.setCursorPos(2, timeY)
-    monitor.setTextColor(colors.lightGray)
-    monitor.write("Time: " .. os.date("%H:%M:%S"))
+    local bottomBarBg = string.rep("8", screenWidth)
+    local bottomBarFg = string.rep("0", screenWidth)
+    local bottomBarText = string.rep(" ", screenWidth)
     
-    local borderWidth = math.min(25, screenWidth - 2)
-    local border = string.rep("=", borderWidth)
-    monitor.setCursorPos(1, screenHeight - 1)
-    monitor.setTextColor(colors.gray)
-    monitor.write(border)
+    local outputPercentage = 0
+    local outputText = outputPercentage .. "%"
+    local timeText = os.date("%H:%M")
+    
+    for i = 1, string.len(outputText) do
+        bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
+    end
+    
+    local timeStart = screenWidth - string.len(timeText) + 1
+    for i = 1, string.len(timeText) do
+        bottomBarText = string.sub(bottomBarText, 1, timeStart + i - 2) .. string.sub(timeText, i, i) .. string.sub(bottomBarText, timeStart + i, -1)
+    end
+    
+    monitor.setCursorPos(1, screenHeight)
+    monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
 
 local function getBlastTime(quantity)
