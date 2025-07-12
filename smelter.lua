@@ -74,47 +74,7 @@ local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
     monitor.write(percentageText .. " (" .. progress .. "/" .. maxProgress .. ")")
 end
 
-local function drawInventoryDisplay(x, y, label, count, maxCount, color)
-    if not monitor then return end
-    
-    local screenWidth, screenHeight = monitor.getSize()
-    local maxBarWidth = screenWidth - x - 2
-    local width = math.min(20, maxBarWidth)
-    
-    local percentage = maxCount > 0 and math.min(count / maxCount, 1) or 0
-    local filledWidth = math.floor(width * percentage)
-    local percentageText = math.floor(percentage * 100) .. "%"
-    
-    monitor.setCursorPos(x, y)
-    monitor.setTextColor(colors.yellow)
-    monitor.write(label)
-    
-    local barText = string.rep(" ", width)
-    local barBg = string.rep("8", width)
-    local barFg = string.rep("0", width)
-    
-    if filledWidth > 0 then
-        local colorChar = "0"
-        if color == colors.cyan then colorChar = "9"
-        elseif color == colors.lime then colorChar = "5"
-        elseif color == colors.orange then colorChar = "1"
-        end
-        
-        barBg = string.rep(colorChar, filledWidth) .. string.rep("8", width - filledWidth)
-    end
-    
-    monitor.setCursorPos(x, y + 1)
-    monitor.blit(barText, barFg, barBg)
-    
-    monitor.setCursorPos(x, y + 2)
-    monitor.setTextColor(colors.white)
-    monitor.setBackgroundColor(colors.black)
-    local itemText = count .. " items " .. percentageText
-    if string.len(itemText) > screenWidth - x then
-        itemText = count .. " " .. percentageText
-    end
-    monitor.write(itemText)
-end
+
 
 local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount)
     if not monitor then return end
@@ -159,18 +119,16 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     local progressBarWidth = math.min(25, screenWidth - 12)
     drawProgressBar(1, 5, progressBarWidth, progress, maxProgress, "Progress:", barColor)
     
-    local inventoryY1 = math.min(8, screenHeight - 8)
-    local inventoryY2 = math.min(12, screenHeight - 4)
+    monitor.setCursorPos(1, 8)
+    monitor.setTextColor(colors.cyan)
+    monitor.setBackgroundColor(colors.black)
+    monitor.write("Batch Size: " .. maxProgress .. " items")
     
-    if screenHeight >= 16 then
-        drawInventoryDisplay(1, inventoryY1, "Input Storage:", inputCount, 2304, colors.cyan)
-        drawInventoryDisplay(1, inventoryY2, "Output Storage:", outputCount, 2304, colors.lime)
-    else
-        drawInventoryDisplay(1, inventoryY1, "Input:", inputCount, 2304, colors.cyan)
-        drawInventoryDisplay(1, inventoryY2, "Output:", outputCount, 2304, colors.lime)
-    end
+    monitor.setCursorPos(1, 10)
+    monitor.setTextColor(colors.yellow)
+    monitor.write("Items Processed: " .. progress .. "/" .. maxProgress)
     
-    local timeY = math.min(16, screenHeight - 1)
+    local timeY = math.min(12, screenHeight - 1)
     monitor.setCursorPos(1, timeY)
     monitor.setTextColor(colors.lightGray)
     monitor.setBackgroundColor(colors.black)
