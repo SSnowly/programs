@@ -23,14 +23,13 @@ local function initMonitor()
     monitor = findMonitor()
     if monitor then
         monitor.clear()
-        local width, height = monitor.getSize()
-        print("Monitor detected: " .. width .. "x" .. height)
         
-        screenConfig.width = width
-        screenConfig.height = height
+        local baseWidth, baseHeight = monitor.getSize()
+        print("Base monitor size: " .. baseWidth .. "x" .. baseHeight)
+        
         screenConfig.isColor = monitor.isColor()
         
-        if width < 30 or height < 15 then
+        if baseWidth < 30 or baseHeight < 15 then
             screenConfig.textScale = 0.5
             monitor.setTextScale(0.5)
             print("Small monitor detected, using 0.5 scale")
@@ -40,6 +39,11 @@ local function initMonitor()
             print("Large monitor detected, using 1.0 scale")
         end
         
+        local finalWidth, finalHeight = monitor.getSize()
+        screenConfig.width = finalWidth
+        screenConfig.height = finalHeight
+        
+        print("Final monitor size: " .. finalWidth .. "x" .. finalHeight)
         print("Screen config saved: " .. screenConfig.width .. "x" .. screenConfig.height .. " scale:" .. screenConfig.textScale .. " color:" .. tostring(screenConfig.isColor))
         
         monitor.setCursorPos(1, 1)
