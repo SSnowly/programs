@@ -30,7 +30,11 @@ local function initMonitor()
         
         screenConfig.isColor = monitor.isColor()
         
-        if baseWidth < 30 or baseHeight < 15 then
+        if baseWidth < 10 or baseHeight < 5 then
+            screenConfig.textScale = 2.0
+            monitor.setTextScale(2.0)
+            print("Tiny monitor detected, using 2.0 scale")
+        elseif baseWidth < 30 or baseHeight < 15 then
             screenConfig.textScale = 1.0
             monitor.setTextScale(1.0)
             print("Small monitor detected, using 1.0 scale")
@@ -100,6 +104,34 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     if not monitor then return end
     
     monitor.clear()
+    
+    if screenConfig.width < 10 or screenConfig.height < 5 then
+        monitor.setCursorPos(1, 1)
+        monitor.setTextColor(colors.white)
+        monitor.setBackgroundColor(colors.blue)
+        monitor.write(string.rep(" ", screenConfig.width))
+        monitor.setCursorPos(1, 1)
+        if screenConfig.width >= 3 then
+            monitor.write("B" .. batchId)
+        else
+            monitor.write(tostring(batchId))
+        end
+        
+        if screenConfig.height >= 2 then
+            monitor.setCursorPos(1, screenConfig.height)
+            monitor.setTextColor(colors.white)
+            monitor.setBackgroundColor(colors.gray)
+            monitor.write(string.rep(" ", screenConfig.width))
+            monitor.setCursorPos(1, screenConfig.height)
+            local outputPercentage = math.floor((outputCount / 2304) * 100)
+            if screenConfig.width >= 3 then
+                monitor.write(outputPercentage .. "%")
+            else
+                monitor.write(tostring(outputPercentage))
+            end
+        end
+        return
+    end
     
     local headerText = "CREATE BLASTING SYSTEM"
     if string.len(headerText) > screenConfig.width then
@@ -185,6 +217,34 @@ local function showWaitingScreen(outputCount)
     if not monitor then return end
     
     monitor.clear()
+    
+    if screenConfig.width < 10 or screenConfig.height < 5 then
+        monitor.setCursorPos(1, 1)
+        monitor.setTextColor(colors.white)
+        monitor.setBackgroundColor(colors.blue)
+        monitor.write(string.rep(" ", screenConfig.width))
+        monitor.setCursorPos(1, 1)
+        if screenConfig.width >= 3 then
+            monitor.write("RDY")
+        else
+            monitor.write("R")
+        end
+        
+        if screenConfig.height >= 2 then
+            monitor.setCursorPos(1, screenConfig.height)
+            monitor.setTextColor(colors.white)
+            monitor.setBackgroundColor(colors.gray)
+            monitor.write(string.rep(" ", screenConfig.width))
+            monitor.setCursorPos(1, screenConfig.height)
+            local outputPercentage = math.floor(((outputCount or 0) / 2304) * 100)
+            if screenConfig.width >= 3 then
+                monitor.write(outputPercentage .. "%")
+            else
+                monitor.write(tostring(outputPercentage))
+            end
+        end
+        return
+    end
     
     local headerText = "CREATE BLASTING SYSTEM"
     if string.len(headerText) > screenConfig.width then
