@@ -282,7 +282,7 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
     
     -- Send flow control pulse to allow items out
     if flowControlSide then
-        sendRedstonePulse(flowControlSide, 6)
+        sendRedstonePulse(flowControlSide, 16)
         print("[Batch " .. batchId .. "] Flow control pulse sent - allowing items out")
     end
     
