@@ -191,10 +191,25 @@ local function setupConfiguration()
     
     local redstoneSide = sides[redstoneChoice]
     
+    print("Select FLOW CONTROL redstone side (controls item output):")
+    for i, side in pairs(sides) do
+        print(i .. ". " .. side)
+    end
+    print("Enter choice (1-6):")
+    
+    local flowControlChoice = tonumber(io.read())
+    if not flowControlChoice or flowControlChoice < 1 or flowControlChoice > 6 then
+        print("Invalid selection for flow control side")
+        return nil
+    end
+    
+    local flowControlSide = sides[flowControlChoice]
+    
     local config = {
         inputChest = inputChest,
         outputChest = outputChest,
-        redstoneSide = redstoneSide
+        redstoneSide = redstoneSide,
+        flowControlSide = flowControlSide
     }
     
     if saveConfig(config) then
@@ -202,6 +217,7 @@ local function setupConfiguration()
         print("Input inventory: " .. inputChest)
         print("Output inventory: " .. outputChest)
         print("Redstone side: " .. redstoneSide)
+        print("Flow control side: " .. flowControlSide)
         return config
     else
         print("Failed to save configuration")
@@ -259,24 +275,36 @@ local function transferToOutputChest(outputChestSide)
     return true
 end
 
-local function processBatch(batchId, quantity, inputChestSide, outputChestSide, redstoneSide)
+local function processBatch(batchId, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
     local blastTime = getBlastTime(quantity)
     
     print("[Batch " .. batchId .. "] Starting - " .. quantity .. " items (" .. blastTime .. "s)")
     
+    -- Turn ON flow control redstone to allow items out
+    if flowControlSide then
+        redstone.setOutput(flowControlSide, true)
+        print("[Batch " .. batchId .. "] Flow control ON - allowing items out")
+    end
+    
     -- Wait for blasting to complete
     sleep(blastTime)
     
-    print("[Batch " .. batchId .. "] Complete! Sending redstone pulse...")
+    print("[Batch " .. batchId .. "] Complete! Sending completion pulse...")
     
-    -- Send 10-tick redstone pulse
+    -- Send 10-tick redstone pulse for completion
     sendRedstonePulse(redstoneSide, 10)
+    
+    -- Turn OFF flow control redstone to stop item flow
+    if flowControlSide then
+        redstone.setOutput(flowControlSide, false)
+        print("[Batch " .. batchId .. "] Flow control OFF - stopping item flow")
+    end
     
     print("[Batch " .. batchId .. "] Finished")
     return true
 end
 
-local function blast(inputChestSide, outputChestSide, redstoneSide)
+local function blast(inputChestSide, outputChestSide, redstoneSide, flowControlSide)
     inputChestSide = inputChestSide or "left"
     outputChestSide = outputChestSide or "right"
     redstoneSide = redstoneSide or "back"
@@ -293,7 +321,7 @@ local function blast(inputChestSide, outputChestSide, redstoneSide)
     transferToOutputChest(outputChestSide)
     
     -- Process single batch
-    return processBatch(1, quantity, inputChestSide, outputChestSide, redstoneSide)
+    return processBatch(1, quantity, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
 end
 
 local function blastContinuous(inputChestSide, outputChestSide, redstoneSide)
@@ -321,7 +349,7 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide)
                 
                 -- Start batch processing in parallel
                 local co = coroutine.create(function()
-                    processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide)
+                    processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, config.flowControlSide)
                 end)
                 
                 table.insert(activeBatches, co)
@@ -336,7 +364,7 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide)
                 print("\n--- Starting Final Batch " .. batchCounter .. " (" .. quantity .. " items) ---")
                 
                 local co = coroutine.create(function()
-                    processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide)
+                    processBatch(batchCounter, quantity, inputChestSide, outputChestSide, redstoneSide, nil)
                 end)
                 
                 table.insert(activeBatches, co)
@@ -370,6 +398,7 @@ local function autoBlaster(config)
     print("Input inventory: " .. config.inputChest)
     print("Output inventory: " .. config.outputChest)
     print("Redstone side: " .. config.redstoneSide)
+    print("Flow control side: " .. (config.flowControlSide or "none"))
     print("Monitoring for items... Press Ctrl+C to stop")
     
     local lastItemCount = 0
@@ -393,7 +422,7 @@ local function autoBlaster(config)
                     
                     -- Start batch processing in parallel
                     local co = coroutine.create(function()
-                        processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide)
+                        processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
                     end)
                     
                     table.insert(activeBatches, co)
@@ -448,6 +477,7 @@ local function main()
         print("  Input inventory: " .. config.inputChest)
         print("  Output inventory: " .. config.outputChest)
         print("  Redstone side: " .. config.redstoneSide)
+        print("  Flow control side: " .. (config.flowControlSide or "none"))
         print()
         print("To reconfigure, delete 'blaster_config.txt' and restart")
     end
