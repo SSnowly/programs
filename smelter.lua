@@ -46,19 +46,27 @@ local function loadConfig()
     return nil
 end
 
+local function isInventoryType(peripheral_type)
+    -- Check if peripheral type is an inventory
+    return string.find(peripheral_type, "chest") or
+           string.find(peripheral_type, "barrel") or
+           string.find(peripheral_type, "shulker") or
+           string.find(peripheral_type, "drawer") or
+           string.find(peripheral_type, "crate") or
+           string.find(peripheral_type, "storage") or
+           string.find(peripheral_type, "tank") or
+           string.find(peripheral_type, "bin")
+end
+
 local function getAvailableInventories()
     local inventories = {}
     local sides = {"left", "right", "top", "bottom", "front", "back"}
     
     for _, side in pairs(sides) do
         if peripheral.isPresent(side) then
-            local success, peripheral_name = pcall(peripheral.getType, side)
-            if success and peripheral_name then
-                -- Check if peripheral has inventory methods (list, pushItems, pullItems)
-                local success2, wrapped = pcall(peripheral.wrap, side)
-                if success2 and wrapped and wrapped.list then
-                    table.insert(inventories, {side = side, type = peripheral_name})
-                end
+            local peripheral_name = peripheral.getType(side)
+            if peripheral_name and isInventoryType(peripheral_name) then
+                table.insert(inventories, {side = side, type = peripheral_name})
             end
         end
     end
@@ -83,30 +91,46 @@ end
 
 local function setupConfiguration()
     print("=== First Time Setup ===")
-    print("Scanning for available inventories...")
+    print("Scanning for peripherals...")
+    print()
     
-    -- Debug: Show all connected peripherals
+    -- Show all connected peripherals and check if they're inventories
     local sides = {"left", "right", "top", "bottom", "front", "back"}
+    local inventoryCount = 0
+    
     for _, side in pairs(sides) do
         if peripheral.isPresent(side) then
-            local success, peripheral_name = pcall(peripheral.getType, side)
-            if success then
-                print("Found peripheral on " .. side .. ": " .. peripheral_name)
+            local peripheral_name = peripheral.getType(side)
+            if peripheral_name then
+                -- Check if it's an inventory using getType
+                local isInventory = isInventoryType(peripheral_name)
+                
+                if isInventory then
+                    print(side .. ": " .. peripheral_name .. " [INVENTORY]")
+                    inventoryCount = inventoryCount + 1
+                else
+                    print(side .. ": " .. peripheral_name .. " [NOT INVENTORY]")
+                end
             else
-                print("Error getting type for peripheral on " .. side)
+                print(side .. ": Error getting peripheral type")
             end
+        else
+            print(side .. ": No peripheral connected")
         end
     end
     
-    local inventories = getAvailableInventories()
+    print()
+    print("Total inventories found: " .. inventoryCount)
+    print()
     
-    if #inventories == 0 then
+    if inventoryCount == 0 then
         print("No inventories found! Please connect inventories and restart.")
         print("Make sure your inventories support the .list() method.")
         return nil
     end
     
-    print("Found " .. #inventories .. " inventories:")
+    local inventories = getAvailableInventories()
+    print("Available inventories for selection:")
     
     local inputChest = selectInventory("Select INPUT inventory:", inventories)
     if not inputChest then
