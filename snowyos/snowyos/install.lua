@@ -52,37 +52,65 @@ local function setupDisplay(screen)
     end
 end
 
-local function drawPixelSnowgolem(display, message)
+local function drawPixelSnowgolem(display, message, isSmall)
     local w, h = display.getSize()
     local pixelW = #snowgolem[1]
     local pixelH = #snowgolem
     
-    -- Calculate starting position to center the snowgolem
-    local startX = math.floor((w - pixelW * 2) / 2)
-    local startY = math.floor((h - pixelH - 6) / 2)
-    
-    -- Draw the pixel art
-    for y, row in ipairs(snowgolem) do
-        for x, colorCode in ipairs(row) do
-            if colorCode ~= 0 then
-                local pixelX = startX + (x - 1) * 2 + 1
-                local pixelY = startY + y
-                
-                display.setCursorPos(pixelX, pixelY)
-                display.setBackgroundColor(colors_map[colorCode])
-                display.write("  ")
+    if isSmall then
+        -- Small icon in top-left corner
+        local startX = 2
+        local startY = 2
+        
+        -- Draw smaller pixel art (1 char per pixel instead of 2)
+        for y, row in ipairs(snowgolem) do
+            for x, colorCode in ipairs(row) do
+                if colorCode ~= 0 then
+                    local pixelX = startX + (x - 1)
+                    local pixelY = startY + (y - 1)
+                    
+                    display.setCursorPos(pixelX, pixelY)
+                    display.setBackgroundColor(colors_map[colorCode])
+                    display.write(" ")
+                end
             end
         end
+        
+        -- Reset colors and draw title next to icon
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+        display.setCursorPos(startX + pixelW + 2, startY + 2)
+        display.write(message)
+        
+        return startY + pixelH + 2
+    else
+        -- Large centered snowgolem (original behavior for boot screen)
+        local startX = math.floor((w - pixelW * 2) / 2)
+        local startY = math.floor((h - pixelH - 6) / 2)
+        
+        -- Draw the pixel art
+        for y, row in ipairs(snowgolem) do
+            for x, colorCode in ipairs(row) do
+                if colorCode ~= 0 then
+                    local pixelX = startX + (x - 1) * 2 + 1
+                    local pixelY = startY + y
+                    
+                    display.setCursorPos(pixelX, pixelY)
+                    display.setBackgroundColor(colors_map[colorCode])
+                    display.write("  ")
+                end
+            end
+        end
+        
+        -- Reset colors and draw message
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+        local msgX = math.floor((w - #message) / 2) + 1
+        display.setCursorPos(msgX, startY + pixelH + 2)
+        display.write(message)
+        
+        return startY + pixelH + 4
     end
-    
-    -- Reset colors and draw message
-    display.setBackgroundColor(colors.black)
-    display.setTextColor(colors.white)
-    local msgX = math.floor((w - #message) / 2) + 1
-    display.setCursorPos(msgX, startY + pixelH + 2)
-    display.write(message)
-    
-    return startY + pixelH + 4  -- Return Y position for next content
 end
 
 local function drawSimpleInstallScreen(display, title)
@@ -104,8 +132,13 @@ local function drawSimpleInstallScreen(display, title)
 end
 
 local function drawInstallScreen(display, isAdvanced, title)
+    display.clear()
+    
     if isAdvanced then
-        return drawPixelSnowgolem(display, title)
+        -- Draw small icon in top-left and return center position for content
+        drawPixelSnowgolem(display, title, true)
+        local w, h = display.getSize()
+        return math.floor(h / 2) - 5  -- Center position for main content
     else
         return drawSimpleInstallScreen(display, title)
     end
@@ -168,7 +201,7 @@ local function drawScreenGrid(display, isAdvanced, screens, selectedIndex, hover
     local rows = math.ceil(totalIcons / iconsPerRow)
     
     local startX = math.floor((w - (iconsPerRow * 12 - 4)) / 2)
-    local startY = nextY + 1
+    local startY = nextY + 2  -- Add more spacing from title
     
     local iconIndex = 1
     
@@ -330,14 +363,16 @@ local function setupUserAccount(selectedScreen)
     
     while true do
         local nextY = drawInstallScreen(display, isAdvanced, "User Account Setup")
+        local w, h = display.getSize()
         
-        -- Username input
-        display.setCursorPos(1, nextY)
-        display.write("Username: ")
+        -- Center the username input
+        local usernamePrompt = "Username: "
+        display.setCursorPos(math.floor((w - 20) / 2), nextY)
+        display.write(usernamePrompt)
         username = read()
         
         if username == "" then
-            display.setCursorPos(1, nextY + 2)
+            display.setCursorPos(math.floor((w - 25) / 2), nextY + 2)
             display.setTextColor(colors.red)
             display.write("Username cannot be empty!")
             display.setTextColor(colors.white)
@@ -349,15 +384,16 @@ local function setupUserAccount(selectedScreen)
     
     while true do
         local nextY = drawInstallScreen(display, isAdvanced, "User Account Setup")
+        local w, h = display.getSize()
         
-        display.setCursorPos(1, nextY)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY)
         display.write("Username: " .. username)
-        display.setCursorPos(1, nextY + 2)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 2)
         display.write("Password: ")
         password = read("*")
         
         if password == "" then
-            display.setCursorPos(1, nextY + 4)
+            display.setCursorPos(math.floor((w - 25) / 2), nextY + 4)
             display.setTextColor(colors.red)
             display.write("Password cannot be empty!")
             display.setTextColor(colors.white)
@@ -369,17 +405,18 @@ local function setupUserAccount(selectedScreen)
     
     while true do
         local nextY = drawInstallScreen(display, isAdvanced, "User Account Setup")
+        local w, h = display.getSize()
         
-        display.setCursorPos(1, nextY)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY)
         display.write("Username: " .. username)
-        display.setCursorPos(1, nextY + 1)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 1)
         display.write("Password: " .. string.rep("*", #password))
-        display.setCursorPos(1, nextY + 3)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 3)
         display.write("Confirm password: ")
         local confirmPassword = read("*")
         
         if password ~= confirmPassword then
-            display.setCursorPos(1, nextY + 5)
+            display.setCursorPos(math.floor((w - 30) / 2), nextY + 5)
             display.setTextColor(colors.red)
             display.write("Passwords don't match! Try again...")
             display.setTextColor(colors.white)
