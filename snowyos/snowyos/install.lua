@@ -120,7 +120,7 @@ local function drawSimpleInstallScreen(display, title)
     local w, h = display.getSize()
     display.clear()
     
-    local startY = math.floor(h / 2) - 3
+    local startY = 3  -- Fixed position at top
     
     -- Draw title
     display.setCursorPos(math.floor((w - #title) / 2) + 1, startY)
@@ -131,7 +131,7 @@ local function drawSimpleInstallScreen(display, title)
     display.setCursorPos(math.floor((w - #underline) / 2) + 1, startY + 1)
     display.write(underline)
     
-    return startY + 4
+    return startY + 6  -- More space after title
 end
 
 local function drawInstallScreen(display, isAdvanced, title)
@@ -143,7 +143,7 @@ local function drawInstallScreen(display, isAdvanced, title)
         -- Draw small icon in top-left and return center position for content
         drawPixelSnowgolem(display, title, true)
         local w, h = display.getSize()
-        return math.floor(h / 2) - 5  -- Center position for main content
+        return math.floor(h / 2) - 2  -- Give more space between title and content
     else
         return drawSimpleInstallScreen(display, title)
     end
@@ -453,7 +453,6 @@ local function setupUserAccount(selectedScreen)
             break
         end
     end
-    
     return username, password
 end
 
@@ -576,16 +575,17 @@ function install.start()
     if isReconfigure then
         while true do
             local nextY = drawInstallScreen(display, isAdvanced, "SnowyOS Reconfiguration")
+            local w, h = display.getSize()
             
-            display.setCursorPos(1, nextY)
+            display.setCursorPos(math.floor((w - 40) / 2), nextY + 2)
             display.write("SnowyOS is already installed with users.")
-            display.setCursorPos(1, nextY + 2)
+            display.setCursorPos(math.floor((w - 20) / 2), nextY + 4)
             display.write("1. Add new user")
-            display.setCursorPos(1, nextY + 3)
+            display.setCursorPos(math.floor((w - 35) / 2), nextY + 5)
             display.write("2. Reset system (deletes all users)")
-            display.setCursorPos(1, nextY + 4)
+            display.setCursorPos(math.floor((w - 10) / 2), nextY + 6)
             display.write("3. Cancel")
-            display.setCursorPos(1, nextY + 6)
+            display.setCursorPos(math.floor((w - 15) / 2), nextY + 8)
             display.write("Choice (1-3): ")
             
             local choice = read()
@@ -593,10 +593,11 @@ function install.start()
                 local username, password = setupUserAccount(nil)
                 saveUserData(username, password)
                 
-                drawInstallScreen(display, isAdvanced, "User Added Successfully")
-                display.setCursorPos(1, nextY)
+                local successY = drawInstallScreen(display, isAdvanced, "User Added Successfully")
+                local w, h = display.getSize()
+                display.setCursorPos(math.floor((w - 35) / 2), successY + 2)
                 display.write("User '" .. username .. "' added successfully!")
-                display.setCursorPos(1, nextY + 2)
+                display.setCursorPos(math.floor((w - 15) / 2), successY + 4)
                 display.write("Restarting...")
                 sleep(3)
                 os.reboot()
@@ -609,14 +610,16 @@ function install.start()
                     fs.delete("snowyos/config.dat")
                 end
                 
-                drawInstallScreen(display, isAdvanced, "System Reset")
-                display.setCursorPos(1, nextY)
+                local resetY = drawInstallScreen(display, isAdvanced, "System Reset")
+                local w, h = display.getSize()
+                display.setCursorPos(math.floor((w - 45) / 2), resetY + 2)
                 display.write("System reset. Continuing with fresh installation...")
                 sleep(2)
                 break
             else
-                drawInstallScreen(display, isAdvanced, "Installation Cancelled")
-                display.setCursorPos(1, nextY)
+                local cancelY = drawInstallScreen(display, isAdvanced, "Installation Cancelled")
+                local w, h = display.getSize()
+                display.setCursorPos(math.floor((w - 25) / 2), cancelY + 2)
                 display.write("Installation cancelled.")
                 sleep(2)
                 return
@@ -625,11 +628,12 @@ function install.start()
     end
     
     -- Welcome screen
-    drawInstallScreen(display, isAdvanced, "Welcome to SnowyOS!")
-    local nextY = (isAdvanced and 18 or 16)
-    display.setCursorPos(1, nextY)
+    local nextY = drawInstallScreen(display, isAdvanced, "Welcome to SnowyOS!")
+    local w, h = display.getSize()
+    
+    display.setCursorPos(math.floor((w - 40) / 2), nextY + 2)
     display.write("This will set up SnowyOS on your computer.")
-    display.setCursorPos(1, nextY + 2)
+    display.setCursorPos(math.floor((w - 30) / 2), nextY + 4)
     display.write("Press any key to continue...")
     
     os.pullEvent("key")
