@@ -142,6 +142,14 @@ local function drawPowerMenu()
         return
     end
     
+    -- Debug: Confirm we're drawing the menu
+    screenManager.forEach(function(display, isAdvanced, name)
+        display.setCursorPos(1, 2)
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.lime)
+        display.write("DRAWING POWER MENU    ")
+    end)
+    
     screenManager.forEach(function(display, isAdvanced, name)
         local w, h = display.getSize()
         local menuX = 2
@@ -292,6 +300,14 @@ local function desktopLoop()
             drawDesktop()
             drawTaskbar()
             drawPowerMenu()
+            
+            -- Debug: Show power menu state
+            screenManager.forEach(function(display, isAdvanced, name)
+                display.setCursorPos(1, 1)
+                display.setBackgroundColor(colors.black)
+                display.setTextColor(colors.yellow)
+                display.write("PowerMenu: " .. tostring(state.showPowerMenu) .. "    ")
+            end)
         end
     end
 end
