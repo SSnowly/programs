@@ -11,6 +11,13 @@ local config = {
     initialized = false
 }
 
+-- Configuration for actual screen sizes (in your units)
+local screenSizes = {
+    -- Add your actual screen dimensions here
+    -- Format: ["monitor_name"] = {width = sizeX, height = sizeY}
+    -- Example: ["monitor_0"] = {width = 1920, height = 1080}
+}
+
 -- Snowgolem pixel art (from boot.lua)
 local snowgolem = {
     {0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0},  -- Top of head
@@ -34,6 +41,35 @@ local snowgolemColors = {
     [4] = colors.orange,   -- Carrot nose
     [8] = colors.gray,     -- Coal eyes/buttons
 }
+
+-- Load screen size configuration
+local function loadScreenSizes()
+    if fs.exists("snowyos/screen_sizes.cfg") then
+        local file = fs.open("snowyos/screen_sizes.cfg", "r")
+        local data = file.readAll()
+        file.close()
+        
+        local loaded = textutils.unserialize(data)
+        if loaded then
+            for name, size in pairs(loaded) do
+                screenSizes[name] = size
+            end
+        end
+    end
+end
+
+-- Save screen size configuration
+function screenManager.setScreenSize(screenName, width, height)
+    screenSizes[screenName] = {width = width, height = height}
+    
+    -- Save to file
+    local file = fs.open("snowyos/screen_sizes.cfg", "w")
+    file.write(textutils.serialize(screenSizes))
+    file.close()
+    
+    -- Reinitialize to apply new size
+    screenManager.reinit()
+end
 
 -- Load configuration from files
 local function loadConfig()
@@ -72,6 +108,49 @@ local function findScreens()
     return screens
 end
 
+-- Calculate optimal text scale for monitors based on size
+local function calculateOptimalScale(monitor, screenName)
+    local sizeX, sizeY
+    
+    -- Use configured size if available
+    if screenSizes[screenName] then
+        sizeX = screenSizes[screenName].width
+        sizeY = screenSizes[screenName].height
+    else
+        -- Estimate based on character dimensions
+        local charSizeX, charSizeY = monitor.getSize()
+        
+        -- Estimate physical size based on character size
+        -- Standard scaling: ~8 chars per block width, ~6 chars per block height at scale 1.0
+        local estimatedBlocksX = math.ceil(charSizeX / 8)
+        local estimatedBlocksY = math.ceil(charSizeY / 6)
+        
+        -- Convert blocks to "screen size" units (assuming 64 units per block)
+        sizeX = estimatedBlocksX * 64
+        sizeY = estimatedBlocksY * 64
+    end
+    
+    -- Try different scales to find the best fit
+    -- Based on: x = Math.round((64 * sizeX - 20) / (6 * scale))
+    local bestScale = 0.5
+    local targetCharsX = 60  -- Target around 60 characters width
+    
+    for scale = 0.5, 3.0, 0.1 do
+        local charsX = math.floor((64 * sizeX - 20) / (6 * scale))
+        local charsY = math.floor((64 * sizeY - 20) / (9 * scale))
+        
+        -- Check if this scale gives us a good character count
+        if charsX >= 40 and charsX <= 100 and charsY >= 20 then
+            local currentBestCharsX = math.floor((64 * sizeX - 20) / (6 * bestScale))
+            if math.abs(charsX - targetCharsX) < math.abs(currentBestCharsX - targetCharsX) then
+                bestScale = scale
+            end
+        end
+    end
+    
+    return bestScale
+end
+
 -- Auto-discover and add additional screens beyond primary
 local function addAdditionalScreens()
     local allScreens = findScreens()
@@ -89,12 +168,16 @@ local function addAdditionalScreens()
         if not alreadyAdded then
             local monitor = peripheral.wrap(screenName)
             if monitor then
-                monitor.setTextScale(0.5)
+                -- Calculate and set optimal scale
+                local optimalScale = calculateOptimalScale(monitor, screenName)
+                monitor.setTextScale(optimalScale)
+                
                 table.insert(config.screens, {
                     name = screenName,
                     display = monitor,
                     isAdvanced = true,
-                    isPrimary = (screenName == config.primaryScreen)
+                    isPrimary = (screenName == config.primaryScreen),
+                    scale = optimalScale
                 })
             end
         end
@@ -108,6 +191,7 @@ function screenManager.init()
     end
     
     loadConfig()
+    loadScreenSizes() -- Load screen sizes after config
     
     -- Build active screen list
     config.screens = {}
@@ -372,6 +456,30 @@ end
 -- Find available screens (exposed version of internal function)
 function screenManager.findAvailableScreens()
     return findScreens()
+end
+
+-- Get calculated character dimensions for a screen
+function screenManager.getCharacterDimensions(screenName)
+    screenManager.init()
+    
+    for _, screen in ipairs(config.screens) do
+        if screen.name == screenName and screen.scale then
+            local sizeX, sizeY = screen.display.getSize()
+            local charsX = math.floor((64 * sizeX - 20) / (6 * screen.scale))
+            local charsY = math.floor((64 * sizeY - 20) / (9 * screen.scale))
+            local pixelsX = charsX * 2
+            local pixelsY = charsY * 3
+            
+            return {
+                characters = {x = charsX, y = charsY},
+                pixels = {x = pixelsX, y = pixelsY},
+                scale = screen.scale,
+                rawSize = {x = sizeX, y = sizeY}
+            }
+        end
+    end
+    
+    return nil
 end
 
 -- Get list of active screens
