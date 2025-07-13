@@ -395,12 +395,12 @@ local function setupUserAccount(selectedScreen)
         
         -- Center the username input
         local usernamePrompt = "Username: "
-        display.setCursorPos(math.floor((w - 20) / 2), nextY)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 2)
         display.write(usernamePrompt)
         username = read()
         
         if username == "" then
-            display.setCursorPos(math.floor((w - 25) / 2), nextY + 2)
+            display.setCursorPos(math.floor((w - 25) / 2), nextY + 4)
             display.setTextColor(colors.red)
             display.write("Username cannot be empty!")
             display.setTextColor(colors.white)
@@ -414,14 +414,14 @@ local function setupUserAccount(selectedScreen)
         local nextY = drawInstallScreen(display, isAdvanced, "User Account Setup")
         local w, h = display.getSize()
         
-        display.setCursorPos(math.floor((w - 20) / 2), nextY)
-        display.write("Username: " .. username)
         display.setCursorPos(math.floor((w - 20) / 2), nextY + 2)
+        display.write("Username: " .. username)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 4)
         display.write("Password: ")
         password = read("*")
         
         if password == "" then
-            display.setCursorPos(math.floor((w - 25) / 2), nextY + 4)
+            display.setCursorPos(math.floor((w - 25) / 2), nextY + 6)
             display.setTextColor(colors.red)
             display.write("Password cannot be empty!")
             display.setTextColor(colors.white)
@@ -435,16 +435,16 @@ local function setupUserAccount(selectedScreen)
         local nextY = drawInstallScreen(display, isAdvanced, "User Account Setup")
         local w, h = display.getSize()
         
-        display.setCursorPos(math.floor((w - 20) / 2), nextY)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 2)
         display.write("Username: " .. username)
-        display.setCursorPos(math.floor((w - 20) / 2), nextY + 1)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 4)
         display.write("Password: " .. string.rep("*", #password))
-        display.setCursorPos(math.floor((w - 20) / 2), nextY + 3)
+        display.setCursorPos(math.floor((w - 20) / 2), nextY + 6)
         display.write("Confirm password: ")
         local confirmPassword = read("*")
         
         if password ~= confirmPassword then
-            display.setCursorPos(math.floor((w - 30) / 2), nextY + 5)
+            display.setCursorPos(math.floor((w - 30) / 2), nextY + 8)
             display.setTextColor(colors.red)
             display.write("Passwords don't match! Try again...")
             display.setTextColor(colors.white)
