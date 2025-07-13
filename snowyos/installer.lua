@@ -28,22 +28,45 @@ end
 -- Download a file
 local function downloadFile(url, path)
     print("Downloading " .. path .. "...")
+    print("  URL: " .. url)
     
     createDir(path)
     
-    local response = http.get(url)
+    local response, error = http.get(url)
     if response then
         local content = response.readAll()
+        local responseCode = response.getResponseCode()
         response.close()
         
-        local file = fs.open(path, "w")
-        file.write(content)
-        file.close()
-        
-        print("✓ " .. path .. " downloaded successfully")
-        return true
+        if responseCode == 200 then
+            local file = fs.open(path, "w")
+            file.write(content)
+            file.close()
+            
+            print("✓ " .. path .. " downloaded successfully (" .. #content .. " bytes)")
+            return true
+        else
+            print("✗ HTTP Error " .. responseCode .. " for " .. path)
+            if responseCode == 404 then
+                print("  File not found on server")
+            elseif responseCode == 403 then
+                print("  Access forbidden - check if repository is public")
+            elseif responseCode == 500 then
+                print("  Server error")
+            end
+            return false
+        end
     else
         print("✗ Failed to download " .. path)
+        if error then
+            print("  Error: " .. error)
+        else
+            print("  Possible causes:")
+            print("  - Network connectivity issues")
+            print("  - HTTP not enabled in CC config")
+            print("  - URL is incorrect")
+            print("  - Server is down")
+        end
         return false
     end
 end
@@ -76,15 +99,76 @@ local function install()
     end
 end
 
--- Check if HTTP is enabled
-if not http then
-    print("✗ HTTP is not enabled!")
-    print("Please enable HTTP in your ComputerCraft config:")
-    print("1. Go to config/computercraft-common.toml")
-    print("2. Set http_enable = true")
-    print("3. Restart your world")
+-- Test connectivity and setup
+local function testSetup()
+    print("Testing system setup...")
+    
+    -- Check if HTTP is enabled
+    if not http then
+        print("✗ HTTP is not enabled!")
+        print("Please enable HTTP in your ComputerCraft config:")
+        print("1. Go to config/computercraft-common.toml")
+        print("2. Set http_enable = true")
+        print("3. Restart your world")
+        return false
+    end
+    print("✓ HTTP is enabled")
+    
+    -- Test basic connectivity
+    print("Testing connectivity to GitHub...")
+    local testResponse, testError = http.get("https://api.github.com")
+    if testResponse then
+        local code = testResponse.getResponseCode()
+        testResponse.close()
+        if code == 200 then
+            print("✓ GitHub is reachable")
+        else
+            print("✗ GitHub returned HTTP " .. code)
+            return false
+        end
+    else
+        print("✗ Cannot reach GitHub")
+        if testError then
+            print("  Error: " .. testError)
+        end
+        return false
+    end
+    
+    -- Test if we can reach the specific repository
+    print("Testing repository access...")
+    local repoTest = http.get(baseUrl .. "startup.lua")
+    if repoTest then
+        local code = repoTest.getResponseCode()
+        repoTest.close()
+        if code == 200 then
+            print("✓ Repository is accessible")
+            return true
+        else
+            print("✗ Repository returned HTTP " .. code)
+            if code == 404 then
+                print("  Repository or files not found")
+            elseif code == 403 then
+                print("  Repository might be private")
+            end
+            return false
+        end
+    else
+        print("✗ Cannot access repository")
+        return false
+    end
+end
+
+-- Run tests first
+if not testSetup() then
+    print()
+    print("Setup test failed. Cannot proceed with installation.")
+    print("Please check the issues above and try again.")
     return
 end
+
+print()
+print("All tests passed! Starting installation...")
+print()
 
 -- Start installation
 install() 
