@@ -82,6 +82,9 @@ local function drawPixelSnowgolem(display, message, isSmall)
         display.setCursorPos(startX + pixelW + 2, startY + 2)
         display.write(message)
         
+        -- Clear any remaining background artifacts
+        display.setBackgroundColor(colors.black)
+        
         return startY + pixelH + 2
     else
         -- Large centered snowgolem (original behavior for boot screen)
@@ -133,6 +136,8 @@ end
 
 local function drawInstallScreen(display, isAdvanced, title)
     display.clear()
+    display.setBackgroundColor(colors.black)
+    display.setTextColor(colors.white)
     
     if isAdvanced then
         -- Draw small icon in top-left and return center position for content
@@ -171,6 +176,19 @@ local function drawScreenIcon(display, x, y, icon, selected, hovered)
         bgColor = colors.lightGray
     end
     
+    -- Clear the entire icon area first
+    for row = 1, #icon do
+        for col = 1, #icon[row] do
+            local pixelX = x + (col - 1)
+            local pixelY = y + (row - 1)
+            
+            display.setCursorPos(pixelX, pixelY)
+            display.setBackgroundColor(colors.black)
+            display.write(" ")
+        end
+    end
+    
+    -- Then draw the icon
     for row = 1, #icon do
         for col = 1, #icon[row] do
             local pixelX = x + (col - 1)
@@ -189,6 +207,7 @@ local function drawScreenIcon(display, x, y, icon, selected, hovered)
     end
     
     display.setBackgroundColor(colors.black)
+    display.setTextColor(colors.white)
 end
 
 local function drawScreenGrid(display, isAdvanced, screens, selectedIndex, hoveredIndex)
@@ -247,8 +266,8 @@ local function drawScreenGrid(display, isAdvanced, screens, selectedIndex, hover
     return startY + rows * 8 + 2
 end
 
-local function getClickedScreen(x, y, screens, startY)
-    local w, h = term.getSize()
+local function getClickedScreen(x, y, screens, startY, display)
+    local w, h = display.getSize()
     local iconsPerRow = math.floor(w / 12)
     local startX = math.floor((w - (iconsPerRow * 12 - 4)) / 2)
     
@@ -258,7 +277,8 @@ local function getClickedScreen(x, y, screens, startY)
         local iconX = startX + ((iconIndex - 1) % iconsPerRow) * 12
         local iconY = startY + math.floor((iconIndex - 1) / iconsPerRow) * 8
         
-        if x >= iconX and x < iconX + 8 and y >= iconY and y < iconY + 6 then
+        -- Check if click is within the icon area (including label area)
+        if x >= iconX and x < iconX + 8 and y >= iconY and y < iconY + 8 then
             if iconIndex == 1 then
                 return 0  -- Terminal
             elseif iconIndex <= #screens + 1 then
@@ -336,7 +356,9 @@ local function selectScreen()
                 end
             else
                 -- Check if clicked on a screen icon
-                local clickedScreen = getClickedScreen(x, y, screens, (isAdvanced and 18 or 16) + 2)
+                local w, h = display.getSize()
+                local gridStartY = (isAdvanced and math.floor(h / 2) - 3 or 16) + 2
+                local clickedScreen = getClickedScreen(x, y, screens, gridStartY, display)
                 if clickedScreen ~= nil then
                     selectedIndex = clickedScreen
                     hoveredIndex = clickedScreen
