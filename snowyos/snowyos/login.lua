@@ -2,7 +2,7 @@
 -- Handles user authentication and session management
 
 local login = {}
-local screenManager = require("snowyos.screen_manager")
+local screenManager = require("screen_manager")
 
 -- Snowgolem pixel art (same as installer)
 local snowgolem = {
