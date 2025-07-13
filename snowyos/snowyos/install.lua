@@ -85,43 +85,29 @@ local function drawPixelSnowgolem(display, message)
     return startY + pixelH + 4  -- Return Y position for next content
 end
 
-local function drawAsciiSnowgolem(display, message)
-    local ascii_snowgolem = {
-        "     ___     ",
-        "    (o o)    ",
-        "   /  -  \\   ",
-        "  /  ___  \\  ",
-        " |  |   |  | ",
-        " |  |___|  | ",
-        "  \\       /  ",
-        "   \\_____/   ",
-        "     | |     ",
-        "     |_|     "
-    }
-    
+local function drawSimpleInstallScreen(display, title)
     local w, h = display.getSize()
-    local startY = math.floor((h - #ascii_snowgolem - 6) / 2)
-    
-    for i, line in ipairs(ascii_snowgolem) do
-        local x = math.floor((w - #line) / 2) + 1
-        display.setCursorPos(x, startY + i)
-        display.write(line)
-    end
-    
-    local msgX = math.floor((w - #message) / 2) + 1
-    display.setCursorPos(msgX, startY + #ascii_snowgolem + 2)
-    display.write(message)
-    
-    return startY + #ascii_snowgolem + 4
-end
-
-local function drawInstallScreen(display, isAdvanced, title, message)
     display.clear()
     
+    local startY = math.floor(h / 2) - 3
+    
+    -- Draw title
+    display.setCursorPos(math.floor((w - #title) / 2) + 1, startY)
+    display.write(title)
+    
+    -- Draw underline
+    local underline = string.rep("=", #title)
+    display.setCursorPos(math.floor((w - #underline) / 2) + 1, startY + 1)
+    display.write(underline)
+    
+    return startY + 4
+end
+
+local function drawInstallScreen(display, isAdvanced, title)
     if isAdvanced then
         return drawPixelSnowgolem(display, title)
     else
-        return drawAsciiSnowgolem(display, title)
+        return drawSimpleInstallScreen(display, title)
     end
 end
 
@@ -568,13 +554,20 @@ function install.start()
         replicateConfig.close()
     end
     
-    finalDisplay.setCursorPos(1, finalY + 4)
+    -- Mark installation as complete
+    finalDisplay.setCursorPos(1, finalY + 3)
+    finalDisplay.write("Marking installation complete...")
+    local installFile = fs.open("snowyos/installed.cfg", "w")
+    installFile.write("true")
+    installFile.close()
+    
+    finalDisplay.setCursorPos(1, finalY + 5)
     finalDisplay.setTextColor(colors.lime)
     finalDisplay.write("Installation complete!")
     finalDisplay.setTextColor(colors.white)
-    finalDisplay.setCursorPos(1, finalY + 5)
+    finalDisplay.setCursorPos(1, finalY + 6)
     finalDisplay.write("User '" .. username .. "' created successfully.")
-    finalDisplay.setCursorPos(1, finalY + 7)
+    finalDisplay.setCursorPos(1, finalY + 8)
     finalDisplay.write("SnowyOS will now restart...")
     sleep(3)
     

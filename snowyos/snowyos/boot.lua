@@ -86,35 +86,20 @@ local function drawPixelSnowgolem(display)
     display.write(message)
 end
 
-local function drawAsciiSnowgolem(display)
-    -- Fallback ASCII art for regular terminals
-    local ascii_snowgolem = {
-        "     ___     ",
-        "    (o o)    ",
-        "   /  -  \\   ",
-        "  /  ___  \\  ",
-        " |  |   |  | ",
-        " |  |___|  | ",
-        "  \\       /  ",
-        "   \\_____/   ",
-        "     | |     ",
-        "     |_|     "
-    }
-    
+local function drawSimpleBoot(display)
     local w, h = display.getSize()
-    local startY = math.floor((h - #ascii_snowgolem - 3) / 2)
     
-    for i, line in ipairs(ascii_snowgolem) do
-        local x = math.floor((w - #line) / 2) + 1
-        display.setCursorPos(x, startY + i)
-        display.write(line)
-    end
+    -- Simple text-based boot screen for terminals
+    local startY = math.floor(h / 2) - 2
     
-    -- Draw "Press Any Button to start" message
-    local message = "Press Any Button to start"
-    local msgX = math.floor((w - #message) / 2) + 1
-    display.setCursorPos(msgX, startY + #ascii_snowgolem + 2)
-    display.write(message)
+    local title = "SnowyOS"
+    local subtitle = "Press Any Button to start"
+    
+    display.setCursorPos(math.floor((w - #title) / 2) + 1, startY)
+    display.write(title)
+    
+    display.setCursorPos(math.floor((w - #subtitle) / 2) + 1, startY + 2)
+    display.write(subtitle)
 end
 
 local function waitForInput()
@@ -151,7 +136,7 @@ local function drawBootScreens(screens, replicateToTerminal)
         if displayInfo.advanced then
             drawPixelSnowgolem(displayInfo.display)
         else
-            drawAsciiSnowgolem(displayInfo.display)
+            drawSimpleBoot(displayInfo.display)
         end
     end
     
@@ -190,21 +175,25 @@ function boot.start()
         end
     end
     
-    local screensToUse = {}
+    -- Only show boot screen if we have an advanced monitor
     if currentScreen then
-        table.insert(screensToUse, currentScreen)
-    end
-    
-    -- Draw boot screens
-    local displays = drawBootScreens(screensToUse, replicateToTerminal or not currentScreen)
-    
-    -- Wait for user input (check all displays)
-    waitForInput()
-    
-    -- Clear all displays
-    for _, displayInfo in ipairs(displays) do
-        displayInfo.display.clear()
-        displayInfo.display.setCursorPos(1, 1)
+        local screensToUse = {currentScreen}
+        
+        -- Draw boot screens
+        local displays = drawBootScreens(screensToUse, replicateToTerminal)
+        
+        -- Wait for user input (check all displays)
+        waitForInput()
+        
+        -- Clear all displays
+        for _, displayInfo in ipairs(displays) do
+            displayInfo.display.clear()
+            displayInfo.display.setCursorPos(1, 1)
+        end
+    else
+        -- No advanced monitor, go straight to login
+        term.clear()
+        term.setCursorPos(1, 1)
     end
     
     -- Load the login system
