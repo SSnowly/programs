@@ -209,9 +209,25 @@ local function handleTaskbarClick(x, y)
     local w, h = screenManager.getSize()
     local taskbarY = h - state.taskbarHeight + 1
     
+    -- Debug output
+    screenManager.forEach(function(display, isAdvanced, name)
+        display.setCursorPos(1, 2)
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.cyan)
+        display.write("Taskbar check: y=" .. y .. " taskbarY=" .. taskbarY .. "    ")
+    end)
+    
     if y >= taskbarY then
         -- Power button click (spans x=2 to x=4, at taskbarY+1)
         if x >= 2 and x <= 4 and y == taskbarY + 1 then
+            -- Debug: Power button clicked
+            screenManager.forEach(function(display, isAdvanced, name)
+                display.setCursorPos(1, 3)
+                display.setBackgroundColor(colors.black)
+                display.setTextColor(colors.lime)
+                display.write("POWER BUTTON CLICKED!    ")
+            end)
+            
             state.showPowerMenu = not state.showPowerMenu
             return
         end
@@ -242,6 +258,14 @@ local function desktopLoop()
         -- Handle events
         local event, button, x, y = os.pullEvent()
         local needsRedraw = false
+        
+        -- Debug: Show all events
+        screenManager.forEach(function(display, isAdvanced, name)
+            display.setCursorPos(1, 4)
+            display.setBackgroundColor(colors.black)
+            display.setTextColor(colors.white)
+            display.write("Event: " .. tostring(event) .. " " .. tostring(button) .. " " .. tostring(x) .. " " .. tostring(y) .. "        ")
+        end)
         
         if event == "mouse_click" then
             -- Debug: Show click coordinates temporarily
