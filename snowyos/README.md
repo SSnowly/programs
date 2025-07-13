@@ -15,7 +15,7 @@ A beautiful operating system for ComputerCraft: Tweaked with pixel art boot scre
 Run this single command in any ComputerCraft computer:
 
 ```bash
-wget run https://raw.githubusercontent.com/snowylol/snowyos/main/installer.lua
+wget run https://raw.githubusercontent.com/SSnowly/programs/refs/heads/main/snowyos/installer.lua
 ```
 
 That's it! The installer will:
