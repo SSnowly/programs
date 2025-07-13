@@ -48,7 +48,7 @@ local function setupDisplay(screen)
         return monitor, true
     else
         term.clear()
-        return term, false
+        return term, true
     end
 end
 
