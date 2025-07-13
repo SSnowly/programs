@@ -226,7 +226,7 @@ local function getCredentials(display, startY)
             
             -- Clear the screen for next attempt
             display.clear()
-            drawLoginScreen(display, display ~= term, "SnowyOS Login")
+            drawLoginScreen(display, true, "SnowyOS Login")
         else
             break
         end
@@ -252,7 +252,7 @@ local function getCredentials(display, startY)
             
             -- Clear the screen for next attempt
             display.clear()
-            drawLoginScreen(display, display ~= term, "SnowyOS Login")
+            drawLoginScreen(display, true, "SnowyOS Login")
         else
             break
         end
@@ -336,7 +336,7 @@ function login.start()
         -- Draw login screen on all displays
         local startY = nil
         for _, display in ipairs(displays) do
-            local isAdvanced = display ~= term
+            local isAdvanced = true  -- Always use visual design like installer
             startY = drawLoginScreen(display, isAdvanced, "SnowyOS Login")
         end
         
