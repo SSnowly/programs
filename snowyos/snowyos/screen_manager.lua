@@ -280,7 +280,7 @@ function screenManager.drawPixelSnowgolem(message, centered)
     centered = centered or false
     
     screenManager.forEach(function(display, isAdvanced, name)
-        if isAdvanced or name.includes("terminal") then
+        if isAdvanced or string.find(name, "term") then
             local w, h = display.getSize()
             local pixelW = #snowgolem[1]
             local pixelH = #snowgolem
