@@ -12,9 +12,9 @@ local baseUrl = "https://raw.githubusercontent.com/SSnowly/programs/refs/heads/m
 -- Files to download
 local files = {
     {url = "startup.lua", path = "startup.lua"},
-    {url = "boot.lua", path = "snowyos/boot.lua"},
-    {url = "install.lua", path = "snowyos/install.lua"},
-    {url = "login.lua", path = "snowyos/login.lua"}
+    {url = "snowyos/boot.lua", path = "snowyos/boot.lua"},
+    {url = "snowyos/install.lua", path = "snowyos/install.lua"},
+    {url = "snowyos/login.lua", path = "snowyos/login.lua"}
 }
 
 -- Create directories if they don't exist
