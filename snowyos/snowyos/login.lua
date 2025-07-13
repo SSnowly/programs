@@ -54,20 +54,19 @@ local function getCredentials(startY)
     
     -- Get username
     while true do
-        primaryDisplay.setBackgroundColor(colors.black)
-        primaryDisplay.setTextColor(colors.white)
+        screenManager.setBackgroundColor(colors.black)
+        screenManager.setTextColor(colors.white)
         
-        -- Center the username input
-        local usernamePrompt = "Username: "
-        primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 2)
-        primaryDisplay.write(usernamePrompt)
+        -- Center the username input on ALL screens
+        screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 2)
+        screenManager.write("Username: ")
         username = read()
         
         if username == "" then
-            primaryDisplay.setCursorPos(math.floor((w - 25) / 2), startY + 4)
-            primaryDisplay.setTextColor(colors.red)
-            primaryDisplay.write("Username cannot be empty!")
-            primaryDisplay.setTextColor(colors.white)
+            screenManager.setCursorPos(math.floor((w - 25) / 2), startY + 4)
+            screenManager.setTextColor(colors.red)
+            screenManager.write("Username cannot be empty!")
+            screenManager.setTextColor(colors.white)
             sleep(2)
             
             -- Clear the screen for next attempt
@@ -79,20 +78,20 @@ local function getCredentials(startY)
     
     -- Get password
     while true do
-        primaryDisplay.setBackgroundColor(colors.black)
-        primaryDisplay.setTextColor(colors.white)
+        screenManager.setBackgroundColor(colors.black)
+        screenManager.setTextColor(colors.white)
         
-        primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 2)
-        primaryDisplay.write("Username: " .. username)
-        primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 4)
-        primaryDisplay.write("Password: ")
+        screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 2)
+        screenManager.write("Username: " .. username)
+        screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 4)
+        screenManager.write("Password: ")
         password = read("*")
         
         if password == "" then
-            primaryDisplay.setCursorPos(math.floor((w - 25) / 2), startY + 6)
-            primaryDisplay.setTextColor(colors.red)
-            primaryDisplay.write("Password cannot be empty!")
-            primaryDisplay.setTextColor(colors.white)
+            screenManager.setCursorPos(math.floor((w - 25) / 2), startY + 6)
+            screenManager.setTextColor(colors.red)
+            screenManager.write("Password cannot be empty!")
+            screenManager.setTextColor(colors.white)
             sleep(2)
             
             -- Clear the screen for next attempt
@@ -109,11 +108,11 @@ local function showLoginError(startY)
     local primaryDisplay = screenManager.getPrimaryDisplay()
     local w, h = primaryDisplay.getSize()
     
-    primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 6)
-    primaryDisplay.setTextColor(colors.red)
-    primaryDisplay.setBackgroundColor(colors.black)
-    primaryDisplay.write("Invalid credentials!")
-    primaryDisplay.setTextColor(colors.white)
+    screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 6)
+    screenManager.setTextColor(colors.red)
+    screenManager.setBackgroundColor(colors.black)
+    screenManager.write("Invalid credentials!")
+    screenManager.setTextColor(colors.white)
     
     sleep(2)
 end

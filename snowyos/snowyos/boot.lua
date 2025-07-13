@@ -8,29 +8,15 @@ function boot.start()
     -- Initialize screen manager
     screenManager.init()
     
-    -- Only show boot screen if we have advanced monitors
-    local hasAdvancedScreens = false
-    screenManager.forEach(function(display, isAdvanced, name)
-        if isAdvanced then
-            hasAdvancedScreens = true
-        end
-    end)
+    -- Always show boot screen on all available displays
+    screenManager.drawBootScreen()
     
-    if hasAdvancedScreens then
-        -- Draw boot screen on all displays
-        screenManager.drawBootScreen()
-        
-        -- Wait for user input
-        screenManager.waitForInput()
-        
-        -- Clear all displays
-        screenManager.clearAll()
-        screenManager.setCursorPos(1, 1)
-    else
-        -- No advanced monitor, go straight to login
-        screenManager.clearAll()
-        screenManager.setCursorPos(1, 1)
-    end
+    -- Wait for user input
+    screenManager.waitForInput()
+    
+    -- Clear all displays
+    screenManager.clearAll()
+    screenManager.setCursorPos(1, 1)
     
     -- Load the login system
     if fs.exists("snowyos/login.lua") then

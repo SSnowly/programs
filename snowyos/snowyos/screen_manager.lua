@@ -252,13 +252,48 @@ function screenManager.clearAndReset()
     screenManager.setCursorPos(1, 1)
 end
 
+-- Write text to all screens with individual positioning
+function screenManager.writeAtPos(x, y, text)
+    screenManager.init()
+    
+    screenManager.forEach(function(display, isAdvanced, name)
+        local w, h = display.getSize()
+        -- Ensure position is within screen bounds
+        local safeX = math.max(1, math.min(x, w))
+        local safeY = math.max(1, math.min(y, h))
+        
+        display.setCursorPos(safeX, safeY)
+        display.write(text)
+    end)
+end
+
+-- Write text centered on all screens
+function screenManager.writeCentered(y, text)
+    screenManager.init()
+    
+    screenManager.forEach(function(display, isAdvanced, name)
+        local w, h = display.getSize()
+        local x = math.floor((w - #text) / 2) + 1
+        local safeX = math.max(1, math.min(x, w))
+        local safeY = math.max(1, math.min(y, h))
+        
+        display.setCursorPos(safeX, safeY)
+        display.write(text)
+    end)
+end
+
 -- Set cursor position on all screens
 function screenManager.setCursorPos(x, y)
     screenManager.init()
     
-    for _, screen in ipairs(config.screens) do
-        screen.display.setCursorPos(x, y)
-    end
+    screenManager.forEach(function(display, isAdvanced, name)
+        local w, h = display.getSize()
+        -- Ensure position is within screen bounds
+        local safeX = math.max(1, math.min(x, w))
+        local safeY = math.max(1, math.min(y, h))
+        
+        display.setCursorPos(safeX, safeY)
+    end)
 end
 
 -- Write text to all screens
