@@ -73,36 +73,68 @@ local function setupDisplay(screen)
     end
 end
 
-local function drawPixelSnowgolem(display, message)
+local function drawPixelSnowgolem(display, message, isSmall)
     local w, h = display.getSize()
     local pixelW = #snowgolem[1]
     local pixelH = #snowgolem
     
-    -- Small icon in top-left corner
-    local startX = 2
-    local startY = 2
-    
-    -- Draw smaller pixel art (1 char per pixel)
-    for y, row in ipairs(snowgolem) do
-        for x, colorCode in ipairs(row) do
-            if colorCode ~= 0 then
-                local pixelX = startX + (x - 1)
-                local pixelY = startY + (y - 1)
-                
-                display.setCursorPos(pixelX, pixelY)
-                display.setBackgroundColor(colors_map[colorCode])
-                display.write(" ")
+    if isSmall then
+        -- Small icon in top-left corner
+        local startX = 2
+        local startY = 2
+        
+        -- Draw smaller pixel art (1 char per pixel instead of 2)
+        for y, row in ipairs(snowgolem) do
+            for x, colorCode in ipairs(row) do
+                if colorCode ~= 0 then
+                    local pixelX = startX + (x - 1)
+                    local pixelY = startY + (y - 1)
+                    
+                    display.setCursorPos(pixelX, pixelY)
+                    display.setBackgroundColor(colors_map[colorCode])
+                    display.write(" ")
+                end
             end
         end
+        
+        -- Reset colors and draw title next to icon
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+        display.setCursorPos(startX + pixelW + 2, startY + 2)
+        display.write(message)
+        
+        -- Clear any remaining background artifacts
+        display.setBackgroundColor(colors.black)
+        
+        return startY + pixelH + 2
+    else
+        -- Large centered snowgolem (original behavior for boot screen)
+        local startX = math.floor((w - pixelW * 2) / 2)
+        local startY = math.floor((h - pixelH - 6) / 2)
+        
+        -- Draw the pixel art
+        for y, row in ipairs(snowgolem) do
+            for x, colorCode in ipairs(row) do
+                if colorCode ~= 0 then
+                    local pixelX = startX + (x - 1) * 2 + 1
+                    local pixelY = startY + y
+                    
+                    display.setCursorPos(pixelX, pixelY)
+                    display.setBackgroundColor(colors_map[colorCode])
+                    display.write("  ")
+                end
+            end
+        end
+        
+        -- Reset colors and draw message
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+        local msgX = math.floor((w - #message) / 2) + 1
+        display.setCursorPos(msgX, startY + pixelH + 2)
+        display.write(message)
+        
+        return startY + pixelH + 4
     end
-    
-    -- Reset colors and draw title next to icon
-    display.setBackgroundColor(colors.black)
-    display.setTextColor(colors.white)
-    display.setCursorPos(startX + pixelW + 2, startY + 2)
-    display.write(message)
-    
-    return startY + pixelH + 2
 end
 
 local function drawSimpleLoginScreen(display, title)
@@ -129,7 +161,8 @@ local function drawLoginScreen(display, isAdvanced, title)
     display.setTextColor(colors.white)
     
     if isAdvanced then
-        drawPixelSnowgolem(display, title)
+        -- Draw small icon in top-left and return center position for content
+        drawPixelSnowgolem(display, title, true)
         local w, h = display.getSize()
         return math.floor(h / 2) - 2
     else
@@ -171,96 +204,73 @@ end
 
 local function getCredentials(display, startY)
     local w, h = display.getSize()
+    local username, password
     
-    -- Create modern login form in center
-    local formWidth = 30
-    local formHeight = 8
-    local startX = math.floor((w - formWidth) / 2)
-    local formY = startY
-    
-    -- Draw login form background
-    display.setBackgroundColor(colors.gray)
-    for y = 0, formHeight - 1 do
-        display.setCursorPos(startX, formY + y)
-        for x = 1, formWidth do
-            display.write(" ")
+    -- Get username
+    while true do
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+        
+        -- Center the username input
+        local usernamePrompt = "Username: "
+        display.setCursorPos(math.floor((w - 20) / 2), startY + 2)
+        display.write(usernamePrompt)
+        username = read()
+        
+        if username == "" then
+            display.setCursorPos(math.floor((w - 25) / 2), startY + 4)
+            display.setTextColor(colors.red)
+            display.write("Username cannot be empty!")
+            display.setTextColor(colors.white)
+            sleep(2)
+            
+            -- Clear the screen for next attempt
+            display.clear()
+            drawLoginScreen(display, display ~= term, "SnowyOS Login")
+        else
+            break
         end
     end
     
-    -- Draw form border
-    display.setBackgroundColor(colors.lightGray)
-    -- Top border
-    display.setCursorPos(startX, formY)
-    for x = 1, formWidth do
-        display.write(" ")
-    end
-    -- Bottom border
-    display.setCursorPos(startX, formY + formHeight - 1)
-    for x = 1, formWidth do
-        display.write(" ")
-    end
-    -- Side borders
-    for y = 1, formHeight - 2 do
-        display.setCursorPos(startX, formY + y)
-        display.write(" ")
-        display.setCursorPos(startX + formWidth - 1, formY + y)
-        display.write(" ")
-    end
-    
-    -- Reset colors for text
-    display.setBackgroundColor(colors.gray)
-    display.setTextColor(colors.white)
-    
-    -- Draw labels
-    display.setCursorPos(startX + 2, formY + 2)
-    display.write("Username:")
-    display.setCursorPos(startX + 2, formY + 5)
-    display.write("Password:")
-    
-    -- Create input fields
-    display.setBackgroundColor(colors.white)
-    display.setTextColor(colors.black)
-    
-    -- Username input field
-    display.setCursorPos(startX + 12, formY + 2)
-    for i = 1, 15 do
-        display.write(" ")
+    -- Get password
+    while true do
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+        
+        display.setCursorPos(math.floor((w - 20) / 2), startY + 2)
+        display.write("Username: " .. username)
+        display.setCursorPos(math.floor((w - 20) / 2), startY + 4)
+        display.write("Password: ")
+        password = read("*")
+        
+        if password == "" then
+            display.setCursorPos(math.floor((w - 25) / 2), startY + 6)
+            display.setTextColor(colors.red)
+            display.write("Password cannot be empty!")
+            display.setTextColor(colors.white)
+            sleep(2)
+            
+            -- Clear the screen for next attempt
+            display.clear()
+            drawLoginScreen(display, display ~= term, "SnowyOS Login")
+        else
+            break
+        end
     end
     
-    -- Password input field
-    display.setCursorPos(startX + 12, formY + 5)
-    for i = 1, 15 do
-        display.write(" ")
-    end
-    
-    -- Get input
-    display.setCursorPos(startX + 12, formY + 2)
-    local username = read()
-    
-    display.setCursorPos(startX + 12, formY + 5)
-    local password = read("*")
-    
-    display.setBackgroundColor(colors.black)
-    display.setTextColor(colors.white)
-    
-    return username, password, startX, formY
+    return username, password
 end
 
-local function showLoginError(display, startX, formY)
-    display.setCursorPos(startX + 2, formY + 7)
+local function showLoginError(display, startY)
+    local w, h = display.getSize()
+    
+    display.setCursorPos(math.floor((w - 20) / 2), startY + 6)
     display.setTextColor(colors.red)
-    display.setBackgroundColor(colors.gray)
+    display.setBackgroundColor(colors.black)
     display.write("Invalid credentials!")
     display.setTextColor(colors.white)
-    display.setBackgroundColor(colors.black)
     
     sleep(2)
-    
-    -- Clear error message
-    display.setCursorPos(startX + 2, formY + 7)
-    display.setBackgroundColor(colors.gray)
-    display.write("                   ")
-    display.setBackgroundColor(colors.black)
 end
 
 local function createSession(username)
@@ -331,7 +341,7 @@ function login.start()
         end
         
         -- Get credentials from primary display only
-        local username, password, startX, formY = getCredentials(primaryDisplay, startY)
+        local username, password = getCredentials(primaryDisplay, startY)
         
         if authenticateUser(username, password) then
             -- Successful login
@@ -353,12 +363,8 @@ function login.start()
             end
             break
         else
-            -- Failed login - show error on all displays
-            for _, display in ipairs(displays) do
-                if display == primaryDisplay then
-                    showLoginError(display, startX, formY)
-                end
-            end
+            -- Failed login - show error on primary display
+            showLoginError(primaryDisplay, startY)
         end
     end
 end
