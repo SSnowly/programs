@@ -211,8 +211,16 @@ local function drawScreenIcon(display, x, y, icon, selected, hovered)
 end
 
 local function drawScreenGrid(display, isAdvanced, screens, selectedIndex, hoveredIndex)
-    local nextY = drawInstallScreen(display, isAdvanced, "Select Display")
+    display.clear()
+    display.setBackgroundColor(colors.black)
+    display.setTextColor(colors.white)
+    
     local w, h = display.getSize()
+    
+    -- Draw title centered at top
+    local title = "Select Display"
+    display.setCursorPos(math.floor((w - #title) / 2) + 1, 3)
+    display.write(title)
     
     -- Calculate grid layout
     local iconsPerRow = math.floor(w / 12)  -- 8 width + 4 spacing
@@ -220,7 +228,7 @@ local function drawScreenGrid(display, isAdvanced, screens, selectedIndex, hover
     local rows = math.ceil(totalIcons / iconsPerRow)
     
     local startX = math.floor((w - (iconsPerRow * 12 - 4)) / 2)
-    local startY = nextY + 2  -- Add more spacing from title
+    local startY = 6  -- Fixed position from top
     
     local iconIndex = 1
     
@@ -356,9 +364,7 @@ local function selectScreen()
                 end
             else
                 -- Check if clicked on a screen icon
-                local w, h = display.getSize()
-                local gridStartY = (isAdvanced and math.floor(h / 2) - 3 or 16) + 2
-                local clickedScreen = getClickedScreen(x, y, screens, gridStartY, display)
+                local clickedScreen = getClickedScreen(x, y, screens, 6, display)
                 if clickedScreen ~= nil then
                     selectedIndex = clickedScreen
                     hoveredIndex = clickedScreen
@@ -491,22 +497,74 @@ local function saveUserData(username, password)
     configFile.close()
 end
 
-local function createSystemFiles()
+local function drawProgressBar(display, progress, message)
+    local w, h = display.getSize()
+    
+    display.clear()
+    display.setBackgroundColor(colors.black)
+    display.setTextColor(colors.white)
+    
+    -- Draw title
+    local title = "Setting up SnowyOS..."
+    display.setCursorPos(math.floor((w - #title) / 2) + 1, math.floor(h / 2) - 3)
+    display.write(title)
+    
+    -- Draw progress bar
+    local barWidth = math.min(40, w - 10)
+    local barStart = math.floor((w - barWidth) / 2) + 1
+    local barY = math.floor(h / 2)
+    
+    -- Progress bar background
+    display.setCursorPos(barStart, barY)
+    display.setBackgroundColor(colors.gray)
+    for i = 1, barWidth do
+        display.write(" ")
+    end
+    
+    -- Progress bar fill
+    local fillWidth = math.floor(barWidth * (progress / 100))
+    display.setCursorPos(barStart, barY)
+    display.setBackgroundColor(colors.lime)
+    for i = 1, fillWidth do
+        display.write(" ")
+    end
+    
+    -- Reset colors and draw message
+    display.setBackgroundColor(colors.black)
+    display.setTextColor(colors.white)
+    
+    -- Progress percentage
+    local percentText = progress .. "%"
+    display.setCursorPos(math.floor((w - #percentText) / 2) + 1, barY + 2)
+    display.write(percentText)
+    
+    -- Status message
+    display.setCursorPos(math.floor((w - #message) / 2) + 1, barY + 4)
+    display.write(message)
+end
+
+local function createSystemFiles(display, isAdvanced)
     -- Create necessary directories
     local dirs = {
         "snowyos/system",
-        "snowyos/programs",
+        "snowyos/programs", 
         "snowyos/data",
         "snowyos/logs"
     }
     
+    local totalSteps = #dirs + 3  -- +3 for additional setup steps
+    local currentStep = 0
+    
     for _, dir in ipairs(dirs) do
+        currentStep = currentStep + 1
+        local progress = math.floor((currentStep / totalSteps) * 100)
+        drawProgressBar(display, progress, "Creating " .. dir .. "...")
+        
         if not fs.exists(dir) then
             fs.makeDir(dir)
         end
+        sleep(0.3)  -- Small delay to show progress
     end
-    
-    print("System directories created.")
 end
 
 function install.start()
@@ -584,49 +642,72 @@ function install.start()
     
     -- Create system files and finalize
     local finalDisplay, finalAdvanced = setupDisplay(selectedScreen)
-    drawInstallScreen(finalDisplay, finalAdvanced, "Setting up SnowyOS...")
     
-    local finalY = (finalAdvanced and 18 or 16)
-    finalDisplay.setCursorPos(1, finalY)
-    finalDisplay.write("Creating system files...")
-    createSystemFiles()
+    -- Start progress bar installation
+    local totalSteps = 7
+    local currentStep = 0
     
-    finalDisplay.setCursorPos(1, finalY + 1)
-    finalDisplay.write("Saving user data...")
+    -- Step 1-4: Create system files
+    createSystemFiles(finalDisplay, finalAdvanced)
+    currentStep = 4
+    
+    -- Step 5: Save user data
+    currentStep = currentStep + 1
+    local progress = math.floor((currentStep / totalSteps) * 100)
+    drawProgressBar(finalDisplay, progress, "Saving user account...")
     saveUserData(username, password)
+    sleep(0.5)
     
-    -- Save screen preference
+    -- Step 6: Save screen preference
+    currentStep = currentStep + 1
+    progress = math.floor((currentStep / totalSteps) * 100)
     if selectedScreen then
-        finalDisplay.setCursorPos(1, finalY + 2)
-        finalDisplay.write("Saving display preferences...")
+        drawProgressBar(finalDisplay, progress, "Configuring display settings...")
         local screenConfig = fs.open("snowyos/screen.cfg", "w")
         screenConfig.write(selectedScreen)
         screenConfig.close()
+    else
+        drawProgressBar(finalDisplay, progress, "Configuring display settings...")
     end
+    sleep(0.5)
     
     -- Save replicate setting
     if replicateToTerminal then
-        finalDisplay.setCursorPos(1, finalY + 3)
-        finalDisplay.write("Enabling terminal replication...")
+        drawProgressBar(finalDisplay, progress, "Enabling terminal replication...")
         local replicateConfig = fs.open("snowyos/replicate.cfg", "w")
         replicateConfig.write("true")
         replicateConfig.close()
+        sleep(0.3)
     end
     
+    -- Step 7: Finalize
+    currentStep = currentStep + 1
+    progress = 100
+    drawProgressBar(finalDisplay, progress, "Finalizing installation...")
+    
     -- Mark installation as complete
-    finalDisplay.setCursorPos(1, finalY + 3)
-    finalDisplay.write("Marking installation complete...")
     local installFile = fs.open("snowyos/installed.cfg", "w")
     installFile.write("true")
     installFile.close()
+    sleep(1)
     
-    finalDisplay.setCursorPos(1, finalY + 5)
-    finalDisplay.setTextColor(colors.lime)
-    finalDisplay.write("Installation complete!")
+    -- Show completion screen
+    finalDisplay.clear()
+    finalDisplay.setBackgroundColor(colors.black)
     finalDisplay.setTextColor(colors.white)
-    finalDisplay.setCursorPos(1, finalY + 6)
-    finalDisplay.write("User '" .. username .. "' created successfully.")
-    finalDisplay.setCursorPos(1, finalY + 8)
+    
+    local w, h = finalDisplay.getSize()
+    local centerY = math.floor(h / 2)
+    
+    finalDisplay.setCursorPos(math.floor((w - 22) / 2) + 1, centerY - 1)
+    finalDisplay.setTextColor(colors.lime)
+    finalDisplay.write("Installation Complete!")
+    
+    finalDisplay.setTextColor(colors.white)
+    finalDisplay.setCursorPos(math.floor((w - 30) / 2) + 1, centerY + 1)
+    finalDisplay.write("User '" .. username .. "' created successfully")
+    
+    finalDisplay.setCursorPos(math.floor((w - 25) / 2) + 1, centerY + 3)
     finalDisplay.write("SnowyOS will now restart...")
     sleep(3)
     
