@@ -2,6 +2,7 @@
 -- Handles user authentication and session management
 
 local login = {}
+local screenManager = require("screen_manager")
 
 -- Snowgolem pixel art (same as installer)
 local snowgolem = {
@@ -27,63 +28,18 @@ local colors_map = {
     [8] = colors.gray,     -- Coal eyes/buttons
 }
 
--- Screen management functions
-local function findScreens()
-    local screens = {}
-    local peripherals = peripheral.getNames()
-    
-    for _, name in ipairs(peripherals) do
-        if peripheral.getType(name) == "monitor" then
-            table.insert(screens, name)
-        end
-    end
-    
-    return screens
-end
-
-local function loadScreenPreference()
-    if fs.exists("snowyos/screen.cfg") then
-        local file = fs.open("snowyos/screen.cfg", "r")
-        local screen = file.readAll()
-        file.close()
-        return screen
-    end
-    return nil
-end
-
-local function shouldReplicateToTerminal()
-    if fs.exists("snowyos/replicate.cfg") then
-        local file = fs.open("snowyos/replicate.cfg", "r")
-        local setting = file.readAll()
-        file.close()
-        return setting == "true"
-    end
-    return false
-end
-
-local function setupDisplay(screen)
-    if screen then
-        local monitor = peripheral.wrap(screen)
-        monitor.clear()
-        monitor.setTextScale(0.5)
-        return monitor, true
-    else
-        term.clear()
-        return term, true
-    end
-end
-
-local function drawPixelSnowgolem(display, message, isSmall)
-    local w, h = display.getSize()
+local function drawPixelSnowgolem(title)
+    local primaryDisplay, isAdvanced = screenManager.getPrimaryDisplay()
+    local w, h = primaryDisplay.getSize()
     local pixelW = #snowgolem[1]
     local pixelH = #snowgolem
     
-    if isSmall then
-        -- Small icon in top-left corner
-        local startX = 2
-        local startY = 2
-        
-        -- Draw smaller pixel art (1 char per pixel instead of 2)
+    -- Small icon in top-left corner
+    local startX = 2
+    local startY = 2
+    
+    -- Draw smaller pixel art on all screens
+    screenManager.forEach(function(display, isAdvanced, name)
         for y, row in ipairs(snowgolem) do
             for x, colorCode in ipairs(row) do
                 if colorCode ~= 0 then
@@ -101,73 +57,38 @@ local function drawPixelSnowgolem(display, message, isSmall)
         display.setBackgroundColor(colors.black)
         display.setTextColor(colors.white)
         display.setCursorPos(startX + pixelW + 2, startY + 2)
-        display.write(message)
-        
-        -- Clear any remaining background artifacts
-        display.setBackgroundColor(colors.black)
-        
-        return startY + pixelH + 2
-    else
-        -- Large centered snowgolem (original behavior for boot screen)
-        local startX = math.floor((w - pixelW * 2) / 2)
-        local startY = math.floor((h - pixelH - 6) / 2)
-        
-        -- Draw the pixel art
-        for y, row in ipairs(snowgolem) do
-            for x, colorCode in ipairs(row) do
-                if colorCode ~= 0 then
-                    local pixelX = startX + (x - 1) * 2 + 1
-                    local pixelY = startY + y
-                    
-                    display.setCursorPos(pixelX, pixelY)
-                    display.setBackgroundColor(colors_map[colorCode])
-                    display.write("  ")
-                end
-            end
-        end
-        
-        -- Reset colors and draw message
-        display.setBackgroundColor(colors.black)
-        display.setTextColor(colors.white)
-        local msgX = math.floor((w - #message) / 2) + 1
-        display.setCursorPos(msgX, startY + pixelH + 2)
-        display.write(message)
-        
-        return startY + pixelH + 4
-    end
+        display.write(title)
+    end)
+    
+    return startY + pixelH + 2
 end
 
-local function drawSimpleLoginScreen(display, title)
-    local w, h = display.getSize()
-    display.clear()
+local function drawSimpleLoginScreen(title)
+    local primaryDisplay = screenManager.getPrimaryDisplay()
+    local w, h = primaryDisplay.getSize()
     
     local startY = 3
     
-    -- Draw title
-    display.setCursorPos(math.floor((w - #title) / 2) + 1, startY)
-    display.write(title)
+    -- Draw title on all screens
+    screenManager.setCursorPos(math.floor((w - #title) / 2) + 1, startY)
+    screenManager.write(title)
     
-    -- Draw underline
+    -- Draw underline on all screens
     local underline = string.rep("=", #title)
-    display.setCursorPos(math.floor((w - #underline) / 2) + 1, startY + 1)
-    display.write(underline)
+    screenManager.setCursorPos(math.floor((w - #underline) / 2) + 1, startY + 1)
+    screenManager.write(underline)
     
     return startY + 6
 end
 
-local function drawLoginScreen(display, isAdvanced, title)
-    display.clear()
-    display.setBackgroundColor(colors.black)
-    display.setTextColor(colors.white)
+local function drawLoginScreen(title)
+    screenManager.clearAll()
     
-    if isAdvanced then
-        -- Draw small icon in top-left and return center position for content
-        drawPixelSnowgolem(display, title, true)
-        local w, h = display.getSize()
-        return math.floor(h / 2) - 2
-    else
-        return drawSimpleLoginScreen(display, title)
-    end
+    -- Always use visual design like installer
+    drawPixelSnowgolem(title)
+    local primaryDisplay = screenManager.getPrimaryDisplay()
+    local w, h = primaryDisplay.getSize()
+    return math.floor(h / 2) - 2
 end
 
 local function simpleHash(str)
@@ -202,31 +123,32 @@ local function authenticateUser(username, password)
     return userData.passwordHash == hashedPassword
 end
 
-local function getCredentials(display, startY)
-    local w, h = display.getSize()
+local function getCredentials(startY)
+    local primaryDisplay = screenManager.getPrimaryDisplay()
+    local w, h = primaryDisplay.getSize()
     local username, password
     
     -- Get username
     while true do
-        display.setBackgroundColor(colors.black)
-        display.setTextColor(colors.white)
+        primaryDisplay.setBackgroundColor(colors.black)
+        primaryDisplay.setTextColor(colors.white)
         
         -- Center the username input
         local usernamePrompt = "Username: "
-        display.setCursorPos(math.floor((w - 20) / 2), startY + 2)
-        display.write(usernamePrompt)
+        primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 2)
+        primaryDisplay.write(usernamePrompt)
         username = read()
         
         if username == "" then
-            display.setCursorPos(math.floor((w - 25) / 2), startY + 4)
-            display.setTextColor(colors.red)
-            display.write("Username cannot be empty!")
-            display.setTextColor(colors.white)
+            primaryDisplay.setCursorPos(math.floor((w - 25) / 2), startY + 4)
+            primaryDisplay.setTextColor(colors.red)
+            primaryDisplay.write("Username cannot be empty!")
+            primaryDisplay.setTextColor(colors.white)
             sleep(2)
             
             -- Clear the screen for next attempt
-            display.clear()
-            drawLoginScreen(display, true, "SnowyOS Login")
+            screenManager.clearAll()
+            drawLoginScreen("SnowyOS Login")
         else
             break
         end
@@ -234,25 +156,25 @@ local function getCredentials(display, startY)
     
     -- Get password
     while true do
-        display.setBackgroundColor(colors.black)
-        display.setTextColor(colors.white)
+        primaryDisplay.setBackgroundColor(colors.black)
+        primaryDisplay.setTextColor(colors.white)
         
-        display.setCursorPos(math.floor((w - 20) / 2), startY + 2)
-        display.write("Username: " .. username)
-        display.setCursorPos(math.floor((w - 20) / 2), startY + 4)
-        display.write("Password: ")
+        primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 2)
+        primaryDisplay.write("Username: " .. username)
+        primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 4)
+        primaryDisplay.write("Password: ")
         password = read("*")
         
         if password == "" then
-            display.setCursorPos(math.floor((w - 25) / 2), startY + 6)
-            display.setTextColor(colors.red)
-            display.write("Password cannot be empty!")
-            display.setTextColor(colors.white)
+            primaryDisplay.setCursorPos(math.floor((w - 25) / 2), startY + 6)
+            primaryDisplay.setTextColor(colors.red)
+            primaryDisplay.write("Password cannot be empty!")
+            primaryDisplay.setTextColor(colors.white)
             sleep(2)
             
             -- Clear the screen for next attempt
-            display.clear()
-            drawLoginScreen(display, true, "SnowyOS Login")
+            screenManager.clearAll()
+            drawLoginScreen("SnowyOS Login")
         else
             break
         end
@@ -261,14 +183,15 @@ local function getCredentials(display, startY)
     return username, password
 end
 
-local function showLoginError(display, startY)
-    local w, h = display.getSize()
+local function showLoginError(startY)
+    local primaryDisplay = screenManager.getPrimaryDisplay()
+    local w, h = primaryDisplay.getSize()
     
-    display.setCursorPos(math.floor((w - 20) / 2), startY + 6)
-    display.setTextColor(colors.red)
-    display.setBackgroundColor(colors.black)
-    display.write("Invalid credentials!")
-    display.setTextColor(colors.white)
+    primaryDisplay.setCursorPos(math.floor((w - 20) / 2), startY + 6)
+    primaryDisplay.setTextColor(colors.red)
+    primaryDisplay.setBackgroundColor(colors.black)
+    primaryDisplay.write("Invalid credentials!")
+    primaryDisplay.setTextColor(colors.white)
     
     sleep(2)
 end
@@ -287,84 +210,58 @@ local function createSession(username)
     return sessionData
 end
 
-local function showSuccessMessage(displays, username)
-    for _, display in ipairs(displays) do
-        display.clear()
-        display.setBackgroundColor(colors.black)
-        display.setTextColor(colors.white)
-        
-        local w, h = display.getSize()
-        local centerY = math.floor(h / 2)
-        
-        display.setCursorPos(math.floor((w - 20) / 2) + 1, centerY - 1)
-        display.setTextColor(colors.lime)
-        display.write("Welcome, " .. username .. "!")
-        
-        display.setTextColor(colors.white)
-        display.setCursorPos(math.floor((w - 18) / 2) + 1, centerY + 1)
-        display.write("Loading SnowyOS...")
-    end
+local function showSuccessMessage(username)
+    screenManager.clearAll()
+    
+    local primaryDisplay = screenManager.getPrimaryDisplay()
+    local w, h = primaryDisplay.getSize()
+    local centerY = math.floor(h / 2)
+    
+    -- Show welcome message on all screens
+    screenManager.setCursorPos(math.floor((w - 20) / 2) + 1, centerY - 1)
+    screenManager.setTextColor(colors.lime)
+    screenManager.write("Welcome, " .. username .. "!")
+    
+    screenManager.setTextColor(colors.white)
+    screenManager.setCursorPos(math.floor((w - 18) / 2) + 1, centerY + 1)
+    screenManager.write("Loading SnowyOS...")
+    
     sleep(2)
 end
 
 function login.start()
-    -- Load screen configuration
-    local preferredScreen = loadScreenPreference()
-    local replicateToTerminal = shouldReplicateToTerminal()
-    
-    -- Setup displays
-    local displays = {}
-    local primaryDisplay = nil
-    
-    if preferredScreen and peripheral.isPresent(preferredScreen) then
-        local monitor, isAdvanced = setupDisplay(preferredScreen)
-        primaryDisplay = monitor
-        table.insert(displays, monitor)
-        
-        -- Add terminal replication if enabled
-        if replicateToTerminal then
-            local terminal, _ = setupDisplay(nil)
-            table.insert(displays, terminal)
-        end
-    else
-        local terminal, isAdvanced = setupDisplay(nil)
-        primaryDisplay = terminal
-        table.insert(displays, terminal)
-    end
+    -- Initialize screen manager
+    screenManager.init()
     
     while true do
         -- Draw login screen on all displays
-        local startY = nil
-        for _, display in ipairs(displays) do
-            local isAdvanced = true  -- Always use visual design like installer
-            startY = drawLoginScreen(display, isAdvanced, "SnowyOS Login")
-        end
+        local startY = drawLoginScreen("SnowyOS Login")
         
         -- Get credentials from primary display only
-        local username, password = getCredentials(primaryDisplay, startY)
+        local username, password = getCredentials(startY)
         
         if authenticateUser(username, password) then
             -- Successful login
             local session = createSession(username)
-            showSuccessMessage(displays, username)
+            showSuccessMessage(username)
             
             -- Launch the main OS
             if fs.exists("snowyos/desktop.lua") then
                 shell.run("snowyos/desktop.lua")
             else
-                for _, display in ipairs(displays) do
+                screenManager.forEach(function(display, isAdvanced, name)
                     local w, h = display.getSize()
                     local centerY = math.floor(h / 2)
                     display.setCursorPos(math.floor((w - 30) / 2) + 1, centerY + 3)
                     display.write("Desktop not found! Starting shell...")
-                end
+                end)
                 sleep(1)
                 shell.run("snowyos/shell.lua")
             end
             break
         else
             -- Failed login - show error on primary display
-            showLoginError(primaryDisplay, startY)
+            showLoginError(startY)
         end
     end
 end
