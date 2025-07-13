@@ -265,8 +265,16 @@ local function setupUserAccount()
         -- Clear and draw the screen
         local nextY = drawInstallScreen("User Account Setup")
         
-        -- Center the username input on ALL screens - terminal-first design
+        -- Show prompt on ALL screens - terminal-first design
         screenManager.writeCentered(nextY + 2, "Username: ")
+        
+        -- Position cursor on primary display for input
+        local primaryDisplay = screenManager.getPrimaryDisplay()
+        local w, h = primaryDisplay.getSize()
+        local promptText = "Username: "
+        local inputX = math.floor((w - #promptText) / 2) + #promptText + 1
+        primaryDisplay.setCursorPos(inputX, nextY + 2)
+        
         username = read()
         
         if username == "" then
@@ -285,6 +293,14 @@ local function setupUserAccount()
         
         screenManager.writeCentered(nextY + 2, "Username: " .. username)
         screenManager.writeCentered(nextY + 4, "Password: ")
+        
+        -- Position cursor on primary display for input
+        local primaryDisplay = screenManager.getPrimaryDisplay()
+        local w, h = primaryDisplay.getSize()
+        local promptText = "Password: "
+        local inputX = math.floor((w - #promptText) / 2) + #promptText + 1
+        primaryDisplay.setCursorPos(inputX, nextY + 4)
+        
         password = read("*")
         
         if password == "" then
@@ -304,6 +320,14 @@ local function setupUserAccount()
         screenManager.writeCentered(nextY + 2, "Username: " .. username)
         screenManager.writeCentered(nextY + 4, "Password: " .. string.rep("*", #password))
         screenManager.writeCentered(nextY + 6, "Confirm password: ")
+        
+        -- Position cursor on primary display for input
+        local primaryDisplay = screenManager.getPrimaryDisplay()
+        local w, h = primaryDisplay.getSize()
+        local promptText = "Confirm password: "
+        local inputX = math.floor((w - #promptText) / 2) + #promptText + 1
+        primaryDisplay.setCursorPos(inputX, nextY + 6)
+        
         local confirmPassword = read("*")
         
         if password ~= confirmPassword then
@@ -445,6 +469,13 @@ function install.start()
             screenManager.writeCentered(nextY + 5, "2. Reset system (deletes all users)")
             screenManager.writeCentered(nextY + 6, "3. Cancel")
             screenManager.writeCentered(nextY + 8, "Choice (1-3): ")
+            
+            -- Position cursor on primary display for input
+            local primaryDisplay = screenManager.getPrimaryDisplay()
+            local w, h = primaryDisplay.getSize()
+            local promptText = "Choice (1-3): "
+            local inputX = math.floor((w - #promptText) / 2) + #promptText + 1
+            primaryDisplay.setCursorPos(inputX, nextY + 8)
             
             local choice = read()
             if choice == "1" then

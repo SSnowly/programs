@@ -73,12 +73,11 @@ local function getCredentials(startY)
         end
     end
     
-    -- Get password
+    -- Get password - don't redraw the screen, just continue
     while true do
         screenManager.setBackgroundColor(colors.black)
         screenManager.setTextColor(colors.white)
         
-        screenManager.writeCentered(startY + 2, "Username: " .. username)
         screenManager.writeCentered(startY + 4, "Password: ")
         password = read("*")
         
@@ -90,6 +89,7 @@ local function getCredentials(startY)
             
             -- Clear the screen for next attempt
             drawLoginScreen("SnowyOS Login")
+            screenManager.writeCentered(startY + 2, "Username: " .. username)
         else
             break
         end
