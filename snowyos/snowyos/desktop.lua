@@ -277,6 +277,14 @@ local function desktopLoop()
             local w, h = screenManager.getSize()
             local taskbarY = h - state.taskbarHeight + 1
             
+            -- Debug: Show which path we're taking
+            screenManager.forEach(function(display, isAdvanced, name)
+                display.setCursorPos(1, 6)
+                display.setBackgroundColor(colors.black)
+                display.setTextColor(colors.red)
+                display.write("showPowerMenu = " .. tostring(state.showPowerMenu) .. "    ")
+            end)
+            
             if state.showPowerMenu then
                 -- Handle power menu clicks first
                 local menuX = 2
@@ -303,6 +311,13 @@ local function desktopLoop()
                 end
             else
                 -- Handle regular taskbar clicks
+                screenManager.forEach(function(display, isAdvanced, name)
+                    display.setCursorPos(1, 7)
+                    display.setBackgroundColor(colors.black)
+                    display.setTextColor(colors.magenta)
+                    display.write("CALLING handleTaskbarClick    ")
+                end)
+                
                 handleTaskbarClick(x, y)
                 needsRedraw = true
             end
