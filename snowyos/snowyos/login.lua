@@ -4,88 +4,12 @@
 local login = {}
 local screenManager = require("screen_manager")
 
--- Snowgolem pixel art (same as installer)
-local snowgolem = {
-    {0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0},  -- Top of head
-    {0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0},  -- Head top
-    {0, 1, 1, 8, 1, 1, 1, 8, 1, 1, 0},  -- Eyes
-    {0, 1, 1, 1, 4, 4, 4, 1, 1, 1, 0},  -- Nose (carrot)
-    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},  -- Mouth area
-    {0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0},  -- Head bottom
-    {0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0},  -- Neck
-    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},  -- Body top
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},  -- Body middle
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},  -- Body bottom
-    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},  -- Body lower
-    {0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0},  -- Base
-}
-
--- Color palette for snowgolem
-local colors_map = {
-    [0] = colors.black,    -- Background/transparent
-    [1] = colors.white,    -- Snow body
-    [4] = colors.orange,   -- Carrot nose
-    [8] = colors.gray,     -- Coal eyes/buttons
-}
-
-local function drawPixelSnowgolem(title)
-    local primaryDisplay, isAdvanced = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    local pixelW = #snowgolem[1]
-    local pixelH = #snowgolem
-    
-    -- Small icon in top-left corner
-    local startX = 2
-    local startY = 2
-    
-    -- Draw smaller pixel art on all screens
-    screenManager.forEach(function(display, isAdvanced, name)
-        for y, row in ipairs(snowgolem) do
-            for x, colorCode in ipairs(row) do
-                if colorCode ~= 0 then
-                    local pixelX = startX + (x - 1)
-                    local pixelY = startY + (y - 1)
-                    
-                    display.setCursorPos(pixelX, pixelY)
-                    display.setBackgroundColor(colors_map[colorCode])
-                    display.write(" ")
-                end
-            end
-        end
-        
-        -- Reset colors and draw title next to icon
-        display.setBackgroundColor(colors.black)
-        display.setTextColor(colors.white)
-        display.setCursorPos(startX + pixelW + 2, startY + 2)
-        display.write(title)
-    end)
-    
-    return startY + pixelH + 2
-end
-
-local function drawSimpleLoginScreen(title)
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    
-    local startY = 3
-    
-    -- Draw title on all screens
-    screenManager.setCursorPos(math.floor((w - #title) / 2) + 1, startY)
-    screenManager.write(title)
-    
-    -- Draw underline on all screens
-    local underline = string.rep("=", #title)
-    screenManager.setCursorPos(math.floor((w - #underline) / 2) + 1, startY + 1)
-    screenManager.write(underline)
-    
-    return startY + 6
-end
-
 local function drawLoginScreen(title)
     screenManager.clearAll()
     
-    -- Always use visual design like installer
-    drawPixelSnowgolem(title)
+    -- Draw snowgolem icon with title (small version)
+    screenManager.drawPixelSnowgolem(title, false)
+    
     local primaryDisplay = screenManager.getPrimaryDisplay()
     local w, h = primaryDisplay.getSize()
     return math.floor(h / 2) - 2
@@ -147,7 +71,6 @@ local function getCredentials(startY)
             sleep(2)
             
             -- Clear the screen for next attempt
-            screenManager.clearAll()
             drawLoginScreen("SnowyOS Login")
         else
             break
@@ -173,7 +96,6 @@ local function getCredentials(startY)
             sleep(2)
             
             -- Clear the screen for next attempt
-            screenManager.clearAll()
             drawLoginScreen("SnowyOS Login")
         else
             break
