@@ -135,9 +135,9 @@ local function drawSimpleInstallScreen(display, title)
 end
 
 local function drawInstallScreen(display, isAdvanced, title)
-    term.clear()
-    term.setBackgroundColor(colors.black)
-    term.setTextColor(colors.white)
+    display.clear()
+    display.setBackgroundColor(colors.black)
+    display.setTextColor(colors.white)
     
     if isAdvanced then
         -- Draw small icon in top-left and return center position for content
