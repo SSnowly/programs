@@ -4,15 +4,15 @@
 local login = {}
 local screenManager = require("screen_manager")
 
+-- Standard terminal-first UI positioning
 local function drawLoginScreen(title)
     screenManager.clearAll()
     
-    -- Draw snowgolem icon with title (small version)
+    -- Draw snowgolem icon with title (small version) - positioned for terminal
     screenManager.drawPixelSnowgolem(title, false)
     
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    return math.floor(h / 2) - 2
+    -- Return consistent Y position for content (designed for terminal)
+    return 8  -- Fixed position that works on terminal and scales to other screens
 end
 
 local function simpleHash(str)
@@ -47,9 +47,8 @@ local function authenticateUser(username, password)
     return userData.passwordHash == hashedPassword
 end
 
+-- Terminal-first credential input design
 local function getCredentials(startY)
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
     local username, password
     
     -- Get username
@@ -57,15 +56,13 @@ local function getCredentials(startY)
         screenManager.setBackgroundColor(colors.black)
         screenManager.setTextColor(colors.white)
         
-        -- Center the username input on ALL screens
-        screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 2)
-        screenManager.write("Username: ")
+        -- Center the username input on ALL screens - terminal-first design
+        screenManager.writeCentered(startY + 2, "Username: ")
         username = read()
         
         if username == "" then
-            screenManager.setCursorPos(math.floor((w - 25) / 2), startY + 4)
+            screenManager.writeCentered(startY + 4, "Username cannot be empty!")
             screenManager.setTextColor(colors.red)
-            screenManager.write("Username cannot be empty!")
             screenManager.setTextColor(colors.white)
             sleep(2)
             
@@ -81,16 +78,13 @@ local function getCredentials(startY)
         screenManager.setBackgroundColor(colors.black)
         screenManager.setTextColor(colors.white)
         
-        screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 2)
-        screenManager.write("Username: " .. username)
-        screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 4)
-        screenManager.write("Password: ")
+        screenManager.writeCentered(startY + 2, "Username: " .. username)
+        screenManager.writeCentered(startY + 4, "Password: ")
         password = read("*")
         
         if password == "" then
-            screenManager.setCursorPos(math.floor((w - 25) / 2), startY + 6)
+            screenManager.writeCentered(startY + 6, "Password cannot be empty!")
             screenManager.setTextColor(colors.red)
-            screenManager.write("Password cannot be empty!")
             screenManager.setTextColor(colors.white)
             sleep(2)
             
@@ -105,13 +99,9 @@ local function getCredentials(startY)
 end
 
 local function showLoginError(startY)
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    
-    screenManager.setCursorPos(math.floor((w - 20) / 2), startY + 6)
+    screenManager.writeCentered(startY + 6, "Invalid credentials!")
     screenManager.setTextColor(colors.red)
     screenManager.setBackgroundColor(colors.black)
-    screenManager.write("Invalid credentials!")
     screenManager.setTextColor(colors.white)
     
     sleep(2)
@@ -134,18 +124,14 @@ end
 local function showSuccessMessage(username)
     screenManager.clearAll()
     
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    local centerY = math.floor(h / 2)
+    local centerY = 9  -- Fixed terminal-first positioning
     
     -- Show welcome message on all screens
-    screenManager.setCursorPos(math.floor((w - 20) / 2) + 1, centerY - 1)
+    screenManager.writeCentered(centerY, "Welcome, " .. username .. "!")
     screenManager.setTextColor(colors.lime)
-    screenManager.write("Welcome, " .. username .. "!")
     
     screenManager.setTextColor(colors.white)
-    screenManager.setCursorPos(math.floor((w - 18) / 2) + 1, centerY + 1)
-    screenManager.write("Loading SnowyOS...")
+    screenManager.writeCentered(centerY + 2, "Loading SnowyOS...")
     
     sleep(2)
 end
@@ -158,7 +144,7 @@ function login.start()
         -- Draw login screen on all displays
         local startY = drawLoginScreen("SnowyOS Login")
         
-        -- Get credentials from primary display only
+        -- Get credentials using terminal-first design
         local username, password = getCredentials(startY)
         
         if authenticateUser(username, password) then
@@ -170,18 +156,13 @@ function login.start()
             if fs.exists("snowyos/desktop.lua") then
                 shell.run("snowyos/desktop.lua")
             else
-                screenManager.forEach(function(display, isAdvanced, name)
-                    local w, h = display.getSize()
-                    local centerY = math.floor(h / 2)
-                    display.setCursorPos(math.floor((w - 30) / 2) + 1, centerY + 3)
-                    display.write("Desktop not found! Starting shell...")
-                end)
+                screenManager.writeCentered(12, "Desktop not found! Starting shell...")
                 sleep(1)
                 shell.run("snowyos/shell.lua")
             end
             break
         else
-            -- Failed login - show error on primary display
+            -- Failed login - show error on all screens
             showLoginError(startY)
         end
     end

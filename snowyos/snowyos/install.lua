@@ -31,15 +31,15 @@ local iconColors = {
     [8] = colors.gray
 }
 
+-- Standard terminal-first UI positioning
 local function drawInstallScreen(title)
     screenManager.clearAll()
     
-    -- Draw snowgolem icon with title (small version)
+    -- Draw snowgolem icon with title (small version) - positioned for terminal
     screenManager.drawPixelSnowgolem(title, false)
     
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    return math.floor(h / 2) - 2
+    -- Return consistent Y position for content (designed for terminal)
+    return 8  -- Fixed position that works on terminal and scales to other screens
 end
 
 local function drawScreenIcon(display, x, y, icon, selected, hovered)
@@ -85,28 +85,25 @@ local function drawScreenIcon(display, x, y, icon, selected, hovered)
 end
 
 local function drawScreenGrid(screens, selectedIndex, hoveredIndex)
-    -- Clear all screens (including terminal if replicating)
     screenManager.clearAll()
     
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
+    -- Draw title centered at top on ALL screens - terminal-first design
+    screenManager.writeCentered(3, "Select Display")
     
-    -- Draw title centered at top on ALL screens
-    screenManager.setCursorPos(math.floor((w - #"Select Display") / 2) + 1, 3)
-    screenManager.write("Select Display")
-    
-    -- Calculate grid layout
-    local iconsPerRow = math.floor(w / 12)  -- 8 width + 4 spacing
+    -- Terminal-first layout: 3 icons per row, fixed positions
+    local iconsPerRow = 3
     local totalIcons = #screens + 2  -- +2 for terminal and replicate options
     local rows = math.ceil(totalIcons / iconsPerRow)
     
-    local startX = math.floor((w - (iconsPerRow * 12 - 4)) / 2)
-    local startY = 6  -- Fixed position from top
+    -- Fixed positions designed for terminal (51 chars wide)
+    local startX = 5  -- Fixed start position
+    local startY = 6  -- Fixed Y position
+    local spacing = 15  -- Fixed spacing between icons
     
     local iconIndex = 1
     
     -- Draw terminal option on ALL screens
-    local termX = startX + ((iconIndex - 1) % iconsPerRow) * 12
+    local termX = startX + ((iconIndex - 1) % iconsPerRow) * spacing
     local termY = startY + math.floor((iconIndex - 1) / iconsPerRow) * 8
     
     -- Draw icon on all screens
@@ -120,7 +117,7 @@ local function drawScreenGrid(screens, selectedIndex, hoveredIndex)
     
     -- Draw screen options on ALL screens
     for i, screen in ipairs(screens) do
-        local iconX = startX + ((iconIndex - 1) % iconsPerRow) * 12
+        local iconX = startX + ((iconIndex - 1) % iconsPerRow) * spacing
         local iconY = startY + math.floor((iconIndex - 1) / iconsPerRow) * 8
         
         -- Draw on all screens
@@ -141,7 +138,7 @@ local function drawScreenGrid(screens, selectedIndex, hoveredIndex)
     end
     
     -- Draw replicate option on ALL screens
-    local repX = startX + ((iconIndex - 1) % iconsPerRow) * 12
+    local repX = startX + ((iconIndex - 1) % iconsPerRow) * spacing
     local repY = startY + math.floor((iconIndex - 1) / iconsPerRow) * 8
     
     screenManager.forEach(function(display, isAdvanced, name)
@@ -154,15 +151,14 @@ local function drawScreenGrid(screens, selectedIndex, hoveredIndex)
 end
 
 local function getClickedScreen(x, y, screens, startY)
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    local iconsPerRow = math.floor(w / 12)
-    local startX = math.floor((w - (iconsPerRow * 12 - 4)) / 2)
+    local iconsPerRow = 3
+    local startX = 5
+    local spacing = 15
     
     local totalIcons = #screens + 2
     
     for iconIndex = 1, totalIcons do
-        local iconX = startX + ((iconIndex - 1) % iconsPerRow) * 12
+        local iconX = startX + ((iconIndex - 1) % iconsPerRow) * spacing
         local iconY = startY + math.floor((iconIndex - 1) / iconsPerRow) * 8
         
         -- Check if click is within the icon area (including label area)
@@ -185,15 +181,10 @@ local function selectScreen()
     
     if #screens == 0 then
         drawInstallScreen("No External Displays")
-        local primaryDisplay = screenManager.getPrimaryDisplay()
-        local w, h = primaryDisplay.getSize()
-        local nextY = 18
-        primaryDisplay.setCursorPos(1, nextY)
-        primaryDisplay.write("No external monitors found.")
-        primaryDisplay.setCursorPos(1, nextY + 1)
-        primaryDisplay.write("Using computer terminal.")
-        primaryDisplay.setCursorPos(1, nextY + 3)
-        primaryDisplay.write("Press any key to continue...")
+        local nextY = 10  -- Fixed position for terminal
+        screenManager.writeAtPos(1, nextY, "No external monitors found.")
+        screenManager.writeAtPos(1, nextY + 1, "Using computer terminal.")
+        screenManager.writeAtPos(1, nextY + 3, "Press any key to continue...")
         os.pullEvent("key")
         return nil, false
     end
@@ -203,11 +194,9 @@ local function selectScreen()
     
     while true do
         local gridEndY = drawScreenGrid(screens, selectedIndex, hoveredIndex)
-        local primaryDisplay = screenManager.getPrimaryDisplay()
         
-        -- Show selection info on ALL screens
+        -- Show selection info on ALL screens - terminal-first positioning
         if selectedIndex ~= nil then
-            screenManager.setCursorPos(1, gridEndY + 1)
             local selectionText = "Selected: "
             
             if selectedIndex == 0 then
@@ -218,20 +207,18 @@ local function selectScreen()
                 selectionText = selectionText .. screens[selectedIndex]
             end
             
-            screenManager.write(selectionText)
+            screenManager.writeAtPos(1, gridEndY + 1, selectionText)
             
-            screenManager.setCursorPos(1, gridEndY + 3)
+            screenManager.writeAtPos(1, gridEndY + 3, "")
             screenManager.setBackgroundColor(colors.lime)
             screenManager.setTextColor(colors.black)
             screenManager.write(" CONFIRM SELECTION ")
             screenManager.setBackgroundColor(colors.black)
             screenManager.setTextColor(colors.white)
             
-            screenManager.setCursorPos(1, gridEndY + 5)
-            screenManager.write("Click screen to change, or press Enter to confirm")
+            screenManager.writeAtPos(1, gridEndY + 5, "Click screen to change, or press Enter to confirm")
         else
-            screenManager.setCursorPos(1, gridEndY + 1)
-            screenManager.write("Click on a display option above")
+            screenManager.writeAtPos(1, gridEndY + 1, "Click on a display option above")
         end
         
         local event, button, x, y = os.pullEvent()
@@ -272,23 +259,19 @@ local function selectScreen()
 end
 
 local function setupUserAccount()
-    local primaryDisplay = screenManager.getPrimaryDisplay()
     local username, password
     
     while true do
         -- Clear and draw the screen
         local nextY = drawInstallScreen("User Account Setup")
-        local w, h = primaryDisplay.getSize()
         
-        -- Center the username input on ALL screens
-        screenManager.setCursorPos(math.floor((w - 10) / 2), nextY + 2)
-        screenManager.write("Username: ")
+        -- Center the username input on ALL screens - terminal-first design
+        screenManager.writeCentered(nextY + 2, "Username: ")
         username = read()
         
         if username == "" then
-            screenManager.setCursorPos(math.floor((w - 25) / 2), nextY + 4)
+            screenManager.writeCentered(nextY + 4, "Username cannot be empty!")
             screenManager.setTextColor(colors.red)
-            screenManager.write("Username cannot be empty!")
             screenManager.setTextColor(colors.white)
             sleep(2)
         else
@@ -299,18 +282,14 @@ local function setupUserAccount()
     while true do
         -- Clear and draw the screen
         local nextY = drawInstallScreen("User Account Setup")
-        local w, h = primaryDisplay.getSize()
         
-        screenManager.setCursorPos(math.floor((w - 20) / 2), nextY + 2)
-        screenManager.write("Username: " .. username)
-        screenManager.setCursorPos(math.floor((w - 10) / 2), nextY + 4)
-        screenManager.write("Password: ")
+        screenManager.writeCentered(nextY + 2, "Username: " .. username)
+        screenManager.writeCentered(nextY + 4, "Password: ")
         password = read("*")
         
         if password == "" then
-            screenManager.setCursorPos(math.floor((w - 25) / 2), nextY + 6)
+            screenManager.writeCentered(nextY + 6, "Password cannot be empty!")
             screenManager.setTextColor(colors.red)
-            screenManager.write("Password cannot be empty!")
             screenManager.setTextColor(colors.white)
             sleep(2)
         else
@@ -321,20 +300,15 @@ local function setupUserAccount()
     while true do
         -- Clear and draw the screen
         local nextY = drawInstallScreen("User Account Setup")
-        local w, h = primaryDisplay.getSize()
         
-        screenManager.setCursorPos(math.floor((w - 20) / 2), nextY + 2)
-        screenManager.write("Username: " .. username)
-        screenManager.setCursorPos(math.floor((w - 25) / 2), nextY + 4)
-        screenManager.write("Password: " .. string.rep("*", #password))
-        screenManager.setCursorPos(math.floor((w - 20) / 2), nextY + 6)
-        screenManager.write("Confirm password: ")
+        screenManager.writeCentered(nextY + 2, "Username: " .. username)
+        screenManager.writeCentered(nextY + 4, "Password: " .. string.rep("*", #password))
+        screenManager.writeCentered(nextY + 6, "Confirm password: ")
         local confirmPassword = read("*")
         
         if password ~= confirmPassword then
-            screenManager.setCursorPos(math.floor((w - 30) / 2), nextY + 8)
+            screenManager.writeCentered(nextY + 8, "Passwords don't match! Try again...")
             screenManager.setTextColor(colors.red)
-            screenManager.write("Passwords don't match! Try again...")
             screenManager.setTextColor(colors.white)
             sleep(2)
         else
@@ -384,52 +358,51 @@ local function saveUserData(username, password)
     configFile.close()
 end
 
+-- Fixed progress bar that shows on ALL screens
 local function drawProgressBar(progress, message)
     screenManager.clearAll()
     
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
-    
     screenManager.setBackgroundColor(colors.black)
     screenManager.setTextColor(colors.white)
     
-    -- Draw title on all screens
+    -- Draw title on all screens - terminal-first positioning
     local title = "Setting up SnowyOS..."
-    screenManager.setCursorPos(math.floor((w - #title) / 2) + 1, math.floor(h / 2) - 3)
-    screenManager.write(title)
+    screenManager.writeCentered(8, title)
     
-    -- Draw progress bar on primary display only
-    local barWidth = math.min(40, w - 10)
-    local barStart = math.floor((w - barWidth) / 2) + 1
-    local barY = math.floor(h / 2)
+    -- Draw progress bar on ALL screens - terminal-first design
+    local barWidth = 30  -- Fixed width that fits terminal
+    local barY = 10  -- Fixed Y position
     
-    -- Progress bar background
-    primaryDisplay.setCursorPos(barStart, barY)
-    primaryDisplay.setBackgroundColor(colors.gray)
-    for i = 1, barWidth do
-        primaryDisplay.write(" ")
-    end
+    screenManager.forEach(function(display, isAdvanced, name)
+        local w, h = display.getSize()
+        local barStart = math.floor((w - barWidth) / 2) + 1
+        
+        -- Progress bar background
+        display.setCursorPos(barStart, barY)
+        display.setBackgroundColor(colors.gray)
+        for i = 1, barWidth do
+            display.write(" ")
+        end
+        
+        -- Progress bar fill
+        local fillWidth = math.floor(barWidth * (progress / 100))
+        display.setCursorPos(barStart, barY)
+        display.setBackgroundColor(colors.lime)
+        for i = 1, fillWidth do
+            display.write(" ")
+        end
+        
+        -- Reset colors
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.white)
+    end)
     
-    -- Progress bar fill
-    local fillWidth = math.floor(barWidth * (progress / 100))
-    primaryDisplay.setCursorPos(barStart, barY)
-    primaryDisplay.setBackgroundColor(colors.lime)
-    for i = 1, fillWidth do
-        primaryDisplay.write(" ")
-    end
-    
-    -- Reset colors and draw percentage/message on all screens
-    screenManager.setBackgroundColor(colors.black)
-    screenManager.setTextColor(colors.white)
-    
-    -- Progress percentage
+    -- Progress percentage on all screens
     local percentText = progress .. "%"
-    screenManager.setCursorPos(math.floor((w - #percentText) / 2) + 1, barY + 2)
-    screenManager.write(percentText)
+    screenManager.writeCentered(barY + 2, percentText)
     
-    -- Status message
-    screenManager.setCursorPos(math.floor((w - #message) / 2) + 1, barY + 4)
-    screenManager.write(message)
+    -- Status message on all screens
+    screenManager.writeCentered(barY + 4, message)
 end
 
 local function createSystemFiles()
@@ -466,19 +439,12 @@ function install.start()
     if isReconfigure then
         while true do
             local nextY = drawInstallScreen("SnowyOS Reconfiguration")
-            local primaryDisplay = screenManager.getPrimaryDisplay()
-            local w, h = primaryDisplay.getSize()
             
-            screenManager.setCursorPos(math.floor((w - 40) / 2), nextY + 2)
-            screenManager.write("SnowyOS is already installed with users.")
-            screenManager.setCursorPos(math.floor((w - 20) / 2), nextY + 4)
-            screenManager.write("1. Add new user")
-            screenManager.setCursorPos(math.floor((w - 35) / 2), nextY + 5)
-            screenManager.write("2. Reset system (deletes all users)")
-            screenManager.setCursorPos(math.floor((w - 10) / 2), nextY + 6)
-            screenManager.write("3. Cancel")
-            screenManager.setCursorPos(math.floor((w - 15) / 2), nextY + 8)
-            screenManager.write("Choice (1-3): ")
+            screenManager.writeCentered(nextY + 2, "SnowyOS is already installed with users.")
+            screenManager.writeCentered(nextY + 4, "1. Add new user")
+            screenManager.writeCentered(nextY + 5, "2. Reset system (deletes all users)")
+            screenManager.writeCentered(nextY + 6, "3. Cancel")
+            screenManager.writeCentered(nextY + 8, "Choice (1-3): ")
             
             local choice = read()
             if choice == "1" then
@@ -486,11 +452,8 @@ function install.start()
                 saveUserData(username, password)
                 
                 local successY = drawInstallScreen("User Added Successfully")
-                local w, h = primaryDisplay.getSize()
-                screenManager.setCursorPos(math.floor((w - 35) / 2), successY + 2)
-                screenManager.write("User '" .. username .. "' added successfully!")
-                screenManager.setCursorPos(math.floor((w - 15) / 2), successY + 4)
-                screenManager.write("Restarting...")
+                screenManager.writeCentered(successY + 2, "User '" .. username .. "' added successfully!")
+                screenManager.writeCentered(successY + 4, "Restarting...")
                 sleep(3)
                 os.reboot()
                 return
@@ -503,16 +466,12 @@ function install.start()
                 end
                 
                 local resetY = drawInstallScreen("System Reset")
-                local w, h = primaryDisplay.getSize()
-                screenManager.setCursorPos(math.floor((w - 45) / 2), resetY + 2)
-                screenManager.write("System reset. Continuing with fresh installation...")
+                screenManager.writeCentered(resetY + 2, "System reset. Continuing with fresh installation...")
                 sleep(2)
                 break
             else
                 local cancelY = drawInstallScreen("Installation Cancelled")
-                local w, h = primaryDisplay.getSize()
-                screenManager.setCursorPos(math.floor((w - 25) / 2), cancelY + 2)
-                screenManager.write("Installation cancelled.")
+                screenManager.writeCentered(cancelY + 2, "Installation cancelled.")
                 sleep(2)
                 return
             end
@@ -521,13 +480,9 @@ function install.start()
     
     -- Welcome screen
     local nextY = drawInstallScreen("Welcome to SnowyOS!")
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    local w, h = primaryDisplay.getSize()
     
-    screenManager.setCursorPos(math.floor((w - 40) / 2), nextY + 2)
-    screenManager.write("This will set up SnowyOS on your computer.")
-    screenManager.setCursorPos(math.floor((w - 30) / 2), nextY + 4)
-    screenManager.write("Press any key to continue...")
+    screenManager.writeCentered(nextY + 2, "This will set up SnowyOS on your computer.")
+    screenManager.writeCentered(nextY + 4, "Press any key to continue...")
     
     os.pullEvent("key")
     
@@ -590,19 +545,13 @@ function install.start()
     screenManager.setBackgroundColor(colors.black)
     screenManager.setTextColor(colors.white)
     
-    local w, h = primaryDisplay.getSize()
-    local centerY = math.floor(h / 2)
+    local centerY = 9  -- Fixed terminal-first positioning
     
-    screenManager.setCursorPos(math.floor((w - 22) / 2) + 1, centerY - 1)
+    screenManager.writeCentered(centerY, "Installation Complete!")
     screenManager.setTextColor(colors.lime)
-    screenManager.write("Installation Complete!")
-    
     screenManager.setTextColor(colors.white)
-    screenManager.setCursorPos(math.floor((w - 30) / 2) + 1, centerY + 1)
-    screenManager.write("User '" .. username .. "' created successfully")
-    
-    screenManager.setCursorPos(math.floor((w - 25) / 2) + 1, centerY + 3)
-    screenManager.write("SnowyOS will now restart...")
+    screenManager.writeCentered(centerY + 2, "User '" .. username .. "' created successfully")
+    screenManager.writeCentered(centerY + 4, "SnowyOS will now restart...")
     sleep(3)
     
     -- Restart the system
