@@ -126,9 +126,43 @@ local function waitForInput()
     end
 end
 
+local function drawBootScreens(screens, replicateToTerminal)
+    local displays = {}
+    
+    -- Add main screen
+    for _, screen in ipairs(screens) do
+        local monitor = peripheral.wrap(screen)
+        if monitor then
+            monitor.clear()
+            monitor.setTextScale(0.5)
+            table.insert(displays, {display = monitor, advanced = true})
+        end
+    end
+    
+    -- Add terminal if replicating
+    if replicateToTerminal then
+        term.clear()
+        table.insert(displays, {display = term, advanced = false})
+    end
+    
+    -- Draw on all displays
+    for _, displayInfo in ipairs(displays) do
+        displayInfo.display.clear()
+        if displayInfo.advanced then
+            drawPixelSnowgolem(displayInfo.display)
+        else
+            drawAsciiSnowgolem(displayInfo.display)
+        end
+    end
+    
+    return displays
+end
+
 function boot.start()
     -- Check for saved screen preference
     local currentScreen = nil
+    local replicateToTerminal = false
+    
     if fs.exists("snowyos/screen.cfg") then
         local file = fs.open("snowyos/screen.cfg", "r")
         currentScreen = file.readAll()
@@ -140,6 +174,14 @@ function boot.start()
         end
     end
     
+    -- Check for replication setting
+    if fs.exists("snowyos/replicate.cfg") then
+        local file = fs.open("snowyos/replicate.cfg", "r")
+        local setting = file.readAll()
+        file.close()
+        replicateToTerminal = (setting == "true")
+    end
+    
     -- If no saved preference or screen not available, find available screens
     if not currentScreen then
         local screens = findScreens()
@@ -148,29 +190,28 @@ function boot.start()
         end
     end
     
-    local display, isAdvanced = setupDisplay(currentScreen)
-    
-    -- Draw the boot screen
-    display.clear()
-    
-    if isAdvanced then
-        drawPixelSnowgolem(display)
-    else
-        drawAsciiSnowgolem(display)
+    local screensToUse = {}
+    if currentScreen then
+        table.insert(screensToUse, currentScreen)
     end
     
-    -- Wait for user input
+    -- Draw boot screens
+    local displays = drawBootScreens(screensToUse, replicateToTerminal or not currentScreen)
+    
+    -- Wait for user input (check all displays)
     waitForInput()
     
-    -- Clear and proceed to login
-    display.clear()
-    display.setCursorPos(1, 1)
+    -- Clear all displays
+    for _, displayInfo in ipairs(displays) do
+        displayInfo.display.clear()
+        displayInfo.display.setCursorPos(1, 1)
+    end
     
     -- Load the login system
     if fs.exists("snowyos/login.lua") then
         shell.run("snowyos/login.lua")
     else
-        display.write("Login system not found!")
+        print("Login system not found!")
         sleep(2)
     end
 end
