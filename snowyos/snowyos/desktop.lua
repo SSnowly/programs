@@ -101,7 +101,7 @@ local function drawTaskbar()
         display.setCursorPos(2, taskbarY + 1)
         display.setBackgroundColor(colors.red)
         display.setTextColor(colors.white)
-        display.write(" \7 ")  -- Power symbol
+        display.write(" ⚫ ")  -- Power symbol
         
         -- Running apps section (middle)
         local appStartX = 8
@@ -145,7 +145,21 @@ local function drawPowerMenu()
     screenManager.forEach(function(display, isAdvanced, name)
         local w, h = display.getSize()
         local menuX = 2
-        local menuY = h - state.taskbarHeight - 3
+        local menuY = h - state.taskbarHeight - 4  -- Move up one more line for better spacing
+        
+        -- Ensure menu doesn't go off screen
+        if menuY < 1 then
+            menuY = 1
+        end
+        
+        -- Menu border background first
+        display.setBackgroundColor(colors.gray)
+        for borderY = menuY - 1, menuY + 3 do
+            if borderY >= 1 and borderY <= h then
+                display.setCursorPos(menuX - 1, borderY)
+                display.write("           ")
+            end
+        end
         
         -- Menu background
         display.setBackgroundColor(colors.lightGray)
@@ -158,20 +172,6 @@ local function drawPowerMenu()
         display.write(" Shutdown ")
         display.setCursorPos(menuX, menuY + 2)
         display.write(" Cancel   ")
-        
-        -- Menu border
-        display.setBackgroundColor(colors.gray)
-        display.setCursorPos(menuX - 1, menuY - 1)
-        display.write("           ")
-        display.setCursorPos(menuX - 1, menuY + 3)
-        display.write("           ")
-        
-        for y = menuY, menuY + 2 do
-            display.setCursorPos(menuX - 1, y)
-            display.write(" ")
-            display.setCursorPos(menuX + 9, y)
-            display.write(" ")
-        end
     end)
 end
 
@@ -179,27 +179,27 @@ end
 local function handlePowerMenuClick(x, y)
     local w, h = screenManager.getSize()
     local menuX = 2
-    local menuY = h - state.taskbarHeight - 3
+    local menuY = h - state.taskbarHeight - 4
+    if menuY < 1 then
+        menuY = 1
+    end
     
-    if x >= menuX and x <= menuX + 8 then
-        if y == menuY then
-            -- Reboot
-            screenManager.clearAll()
-            screenManager.writeCentered(math.floor(h/2), "Rebooting...")
-            sleep(1)
-            os.reboot()
-        elseif y == menuY + 1 then
-            -- Shutdown
-            screenManager.clearAll()
-            screenManager.writeCentered(math.floor(h/2), "Shutting down...")
-            sleep(1)
-            os.shutdown()
-        elseif y == menuY + 2 then
-            -- Cancel
-            state.showPowerMenu = false
-        end
-    else
-        -- Click outside menu - close it
+    if y == menuY then
+        -- Reboot
+        state.showPowerMenu = false
+        screenManager.clearAll()
+        screenManager.writeCentered(math.floor(h/2), "Rebooting...")
+        sleep(1)
+        os.reboot()
+    elseif y == menuY + 1 then
+        -- Shutdown
+        state.showPowerMenu = false
+        screenManager.clearAll()
+        screenManager.writeCentered(math.floor(h/2), "Shutting down...")
+        sleep(1)
+        os.shutdown()
+    elseif y == menuY + 2 then
+        -- Cancel
         state.showPowerMenu = false
     end
 end
@@ -210,7 +210,7 @@ local function handleTaskbarClick(x, y)
     local taskbarY = h - state.taskbarHeight + 1
     
     if y >= taskbarY then
-        -- Power button click
+        -- Power button click (spans x=2 to x=4, at taskbarY+1)
         if x >= 2 and x <= 4 and y == taskbarY + 1 then
             state.showPowerMenu = not state.showPowerMenu
             return
@@ -233,33 +233,65 @@ end
 
 -- Main desktop loop
 local function desktopLoop()
+    -- Initial draw
+    drawDesktop()
+    drawTaskbar()
+    drawPowerMenu()
+    
     while state.running do
-        -- Draw desktop components
-        drawDesktop()
-        drawTaskbar()
-        drawPowerMenu()
-        
         -- Handle events
         local event, button, x, y = os.pullEvent()
+        local needsRedraw = false
         
         if event == "mouse_click" then
             if state.showPowerMenu then
-                handlePowerMenuClick(x, y)
+                -- Handle power menu clicks first
+                local w, h = screenManager.getSize()
+                local menuX = 2
+                local menuY = h - state.taskbarHeight - 4
+                if menuY < 1 then
+                    menuY = 1
+                end
+                
+                if x >= menuX and x <= menuX + 8 and y >= menuY and y <= menuY + 2 then
+                    -- Click inside power menu
+                    handlePowerMenuClick(x, y)
+                    needsRedraw = true
+                else
+                    -- Click outside power menu - check if it's the power button
+                    local taskbarY = h - state.taskbarHeight + 1
+                    if x >= 2 and x <= 4 and y == taskbarY + 1 then
+                        -- Clicked power button while menu is open - toggle it
+                        state.showPowerMenu = false
+                        needsRedraw = true
+                    else
+                        -- Click elsewhere - close menu
+                        state.showPowerMenu = false
+                        needsRedraw = true
+                    end
+                end
             else
+                -- Handle regular taskbar clicks
                 handleTaskbarClick(x, y)
+                needsRedraw = true
             end
         elseif event == "key" then
             -- Handle keyboard shortcuts
-            if button == keys.f4 and state.showPowerMenu then
-                -- Alt+F4 equivalent - close power menu
+            if button == keys.escape and state.showPowerMenu then
                 state.showPowerMenu = false
+                needsRedraw = true
             end
         elseif event == "timer" then
             -- Update time display periodically
-            -- Timer will be set up separately
+            needsRedraw = true
         end
         
-        sleep(0.1)  -- Small delay to prevent excessive CPU usage
+        -- Only redraw if something changed
+        if needsRedraw then
+            drawDesktop()
+            drawTaskbar()
+            drawPowerMenu()
+        end
     end
 end
 

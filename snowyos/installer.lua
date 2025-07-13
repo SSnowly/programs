@@ -15,7 +15,8 @@ local files = {
     {url = "snowyos/boot.lua", path = "snowyos/boot.lua"},
     {url = "snowyos/install.lua", path = "snowyos/install.lua"},
     {url = "snowyos/login.lua", path = "snowyos/login.lua"},
-    {url = "snowyos/screen_manager.lua", path = "snowyos/screen_manager.lua"}
+    {url = "snowyos/screen_manager.lua", path = "snowyos/screen_manager.lua"},
+    {url = "snowyos/desktop.lua", path = "snowyos/desktop.lua"}
 }
 
 -- Create directories if they don't exist
