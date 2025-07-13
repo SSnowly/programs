@@ -234,7 +234,22 @@ function screenManager.clearAll()
         screen.display.clear()
         screen.display.setBackgroundColor(colors.black)
         screen.display.setTextColor(colors.white)
+        screen.display.setCursorPos(1, 1)
     end
+end
+
+-- Clear just the terminal (useful for debugging)
+function screenManager.clearTerminal()
+    term.clear()
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.white)
+    term.setCursorPos(1, 1)
+end
+
+-- Clear all screens and reset cursor position
+function screenManager.clearAndReset()
+    screenManager.clearAll()
+    screenManager.setCursorPos(1, 1)
 end
 
 -- Set cursor position on all screens

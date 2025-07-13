@@ -85,17 +85,15 @@ local function drawScreenIcon(display, x, y, icon, selected, hovered)
 end
 
 local function drawScreenGrid(screens, selectedIndex, hoveredIndex)
-    local primaryDisplay = screenManager.getPrimaryDisplay()
-    primaryDisplay.clear()
-    primaryDisplay.setBackgroundColor(colors.black)
-    primaryDisplay.setTextColor(colors.white)
+    -- Clear all screens (including terminal if replicating)
+    screenManager.clearAll()
     
+    local primaryDisplay = screenManager.getPrimaryDisplay()
     local w, h = primaryDisplay.getSize()
     
     -- Draw title centered at top
-    local title = "Select Display"
-    primaryDisplay.setCursorPos(math.floor((w - #title) / 2) + 1, 3)
-    primaryDisplay.write(title)
+    primaryDisplay.setCursorPos(math.floor((w - #"Select Display") / 2) + 1, 3)
+    primaryDisplay.write("Select Display")
     
     -- Calculate grid layout
     local iconsPerRow = math.floor(w / 12)  -- 8 width + 4 spacing
