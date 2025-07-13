@@ -1,6 +1,5 @@
 -- SnowyOS Web Installer
 -- Downloads and installs SnowyOS from the internet
--- Usage: wget run https://raw.githubusercontent.com/your-repo/snowyos/main/installer.lua
 
 print("SnowyOS Web Installer")
 print("=====================")
