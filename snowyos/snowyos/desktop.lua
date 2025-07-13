@@ -244,9 +244,20 @@ local function desktopLoop()
         local needsRedraw = false
         
         if event == "mouse_click" then
+            -- Debug: Show click coordinates temporarily
+            local w, h = screenManager.getSize()
+            local taskbarY = h - state.taskbarHeight + 1
+            
+            -- Debug display (temporary)
+            screenManager.forEach(function(display, isAdvanced, name)
+                display.setCursorPos(1, 1)
+                display.setBackgroundColor(colors.black)
+                display.setTextColor(colors.yellow)
+                display.write("Click: " .. x .. "," .. y .. " TaskbarY:" .. taskbarY .. "    ")
+            end)
+            
             if state.showPowerMenu then
                 -- Handle power menu clicks first
-                local w, h = screenManager.getSize()
                 local menuX = 2
                 local menuY = h - state.taskbarHeight - 4
                 if menuY < 1 then
@@ -259,7 +270,6 @@ local function desktopLoop()
                     needsRedraw = true
                 else
                     -- Click outside power menu - check if it's the power button
-                    local taskbarY = h - state.taskbarHeight + 1
                     if x >= 2 and x <= 4 and y == taskbarY + 1 then
                         -- Clicked power button while menu is open - toggle it
                         state.showPowerMenu = false
