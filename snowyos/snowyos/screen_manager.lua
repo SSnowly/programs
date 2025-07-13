@@ -199,8 +199,9 @@ function screenManager.init()
     -- Add all available screens automatically
     addAdditionalScreens()
     
-    -- Add terminal if replicating or no primary screen
-    if config.replicateToTerminal or #config.screens == 0 then
+    -- Always add terminal during installation, otherwise only if replicating or no primary screen
+    local isInstallation = not fs.exists("snowyos/installed.cfg")
+    if isInstallation or config.replicateToTerminal or #config.screens == 0 then
         table.insert(config.screens, {
             name = "terminal",
             display = term,
