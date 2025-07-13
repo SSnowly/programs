@@ -217,9 +217,31 @@ local function handleTaskbarClick(x, y)
     local w, h = screenManager.getSize()
     local taskbarY = h - state.taskbarHeight + 1
     
+    -- Debug: Show click analysis
+    screenManager.forEach(function(display, isAdvanced, name)
+        display.setCursorPos(1, 3)
+        display.setBackgroundColor(colors.black)
+        display.setTextColor(colors.cyan)
+        display.write("Click: x=" .. x .. " y=" .. y .. " taskbarY=" .. taskbarY .. " h=" .. h .. "    ")
+    end)
+    
     if y >= taskbarY then
         -- Power button click (spans x=2 to x=4, at taskbarY+1)
-        if x >= 2 and x <= 4 and y == taskbarY + 1 then
+        local powerButtonY = taskbarY + 1
+        screenManager.forEach(function(display, isAdvanced, name)
+            display.setCursorPos(1, 4)
+            display.setBackgroundColor(colors.black)
+            display.setTextColor(colors.orange)
+            display.write("PowerBtn check: x=" .. x .. " y=" .. y .. " btnY=" .. powerButtonY .. "    ")
+        end)
+        
+        if x >= 2 and x <= 4 and y == powerButtonY then
+            screenManager.forEach(function(display, isAdvanced, name)
+                display.setCursorPos(1, 5)
+                display.setBackgroundColor(colors.black)
+                display.setTextColor(colors.lime)
+                display.write("POWER BUTTON HIT!    ")
+            end)
             state.showPowerMenu = not state.showPowerMenu
             return
         end
