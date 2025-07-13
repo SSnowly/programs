@@ -236,7 +236,8 @@ local function selectScreen()
                 if selectedIndex == 0 then
                     return nil, false
                 elseif selectedIndex == -1 then
-                    return nil, true  -- Replicate to terminal
+                    -- Replicate to terminal - use first available screen as primary
+                    return screens[1], true
                 else
                     return screens[selectedIndex], false
                 end
@@ -254,7 +255,8 @@ local function selectScreen()
                 if selectedIndex == 0 then
                     return nil, false
                 elseif selectedIndex == -1 then
-                    return nil, true
+                    -- Replicate to terminal - use first available screen as primary
+                    return screens[1], true
                 else
                     return screens[selectedIndex], false
                 end

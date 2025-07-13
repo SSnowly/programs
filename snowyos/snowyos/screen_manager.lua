@@ -74,13 +74,19 @@ end
 
 -- Auto-discover and add additional screens beyond primary
 local function addAdditionalScreens()
-    if not config.primaryScreen then
-        return
-    end
-    
     local allScreens = findScreens()
     for _, screenName in ipairs(allScreens) do
-        if screenName ~= config.primaryScreen then
+        -- Add all monitors, not just non-primary ones
+        -- Check if this screen is already added to avoid duplicates
+        local alreadyAdded = false
+        for _, existingScreen in ipairs(config.screens) do
+            if existingScreen.name == screenName then
+                alreadyAdded = true
+                break
+            end
+        end
+        
+        if not alreadyAdded then
             local monitor = peripheral.wrap(screenName)
             if monitor then
                 monitor.setTextScale(0.5)
@@ -88,7 +94,7 @@ local function addAdditionalScreens()
                     name = screenName,
                     display = monitor,
                     isAdvanced = true,
-                    isPrimary = false
+                    isPrimary = (screenName == config.primaryScreen)
                 })
             end
         end
@@ -106,28 +112,16 @@ function screenManager.init()
     -- Build active screen list
     config.screens = {}
     
-    -- Add primary screen if available
-    if config.primaryScreen and peripheral.isPresent(config.primaryScreen) then
-        local monitor = peripheral.wrap(config.primaryScreen)
-        monitor.setTextScale(0.5)
-        table.insert(config.screens, {
-            name = config.primaryScreen,
-            display = monitor,
-            isAdvanced = true,
-            isPrimary = true
-        })
-    end
-    
-    -- Add additional screens automatically
+    -- Add all available screens automatically
     addAdditionalScreens()
     
     -- Add terminal if replicating or no primary screen
-    if config.replicateToTerminal or not config.primaryScreen then
+    if config.replicateToTerminal or #config.screens == 0 then
         table.insert(config.screens, {
             name = "terminal",
             display = term,
             isAdvanced = false,
-            isPrimary = not config.primaryScreen
+            isPrimary = #config.screens == 0  -- Terminal is primary only if no monitors
         })
     end
     
