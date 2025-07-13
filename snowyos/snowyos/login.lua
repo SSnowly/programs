@@ -320,15 +320,15 @@ function login.start()
         local monitor, isAdvanced = setupDisplay(preferredScreen)
         primaryDisplay = monitor
         table.insert(displays, monitor)
+        
+        -- Add terminal replication if enabled
+        if replicateToTerminal then
+            local terminal, _ = setupDisplay(nil)
+            table.insert(displays, terminal)
+        end
     else
         local terminal, isAdvanced = setupDisplay(nil)
         primaryDisplay = terminal
-        table.insert(displays, terminal)
-    end
-    
-    -- Add terminal replication if enabled
-    if replicateToTerminal and preferredScreen then
-        local terminal, _ = setupDisplay(nil)
         table.insert(displays, terminal)
     end
     
