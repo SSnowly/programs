@@ -569,7 +569,7 @@ end
 
 local function transferFromInputChest(inputChestSide, maxItems)
     inputChestSide = inputChestSide or "left"
-    maxItems = maxItems or 16
+    maxItems = maxItems or 64
 
     local inputChest = peripheral.wrap(inputChestSide)
 
@@ -712,9 +712,9 @@ local function processBatch(batchId, quantity, inputChestSide, outputChestSide, 
         print("[Batch " .. batchId .. "] Flow control pulse sent - allowing items out")
     end
 
-    print("[Batch " .. batchId .. "] Waiting 7.5s for processing...")
-    for i = 1, 15 do
-        local progress = math.floor((i / 15) * 100)
+    print("[Batch " .. batchId .. "] Waiting 30s for processing...")
+    for i = 1, 60 do
+        local progress = math.floor((i / 60) * 100)
         updateMonitorDisplay(batchId, "Processing", progress, 100, countItemsInChest(inputChestSide), countItemsInChest(outputChestSide), quantity)
         sleep(0.5)
     end
@@ -747,7 +747,7 @@ local function blast(inputChestSide, outputChestSide, redstoneSide, flowControlS
     outputChestSide = outputChestSide or "right"
     redstoneSide = redstoneSide or "back"
 
-    local quantity, itemType = transferFromInputChest(inputChestSide, 16)
+    local quantity, itemType = transferFromInputChest(inputChestSide, 64)
 
     if quantity == 0 then
         print("No items to process in input inventory")
@@ -776,7 +776,7 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
 
         if not processingBatch and totalItems > 0 then
             batchCounter = batchCounter + 1
-            local quantity, itemType = transferFromInputChest(inputChestSide, 16)
+            local quantity, itemType = transferFromInputChest(inputChestSide, 64)
 
             if quantity > 0 then
                 processingBatch = true
@@ -792,7 +792,7 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
         if processingBatch then
             print("Processing batch " .. batchCounter .. " | Items remaining: " .. countItemsInChest(inputChestSide))
         elseif totalItems > 0 then
-            print("Items ready for processing: " .. totalItems .. " (will process up to 16)")
+            print("Items ready for processing: " .. totalItems .. " (will process up to 64)")
         elseif totalItems == 0 then
             print("Waiting for items in input inventory...")
         end
@@ -821,7 +821,7 @@ local function autoBlaster(config)
             print("\nItems detected! Starting batch processing...")
             
             batchCounter = batchCounter + 1
-            local quantity, itemType = transferFromInputChest(config.inputChest, 16)
+            local quantity, itemType = transferFromInputChest(config.inputChest, 64)
             
             if quantity > 0 then
                 processingBatch = true
@@ -839,7 +839,7 @@ local function autoBlaster(config)
         if processingBatch then
             print("Processing batch " .. batchCounter .. " | Items in inventory: " .. currentItemCount)
         elseif currentItemCount > 0 then
-            print("Items ready for processing: " .. currentItemCount .. " (will process up to 16)")
+            print("Items ready for processing: " .. currentItemCount .. " (will process up to 64)")
         elseif currentItemCount == 0 then
             print("Waiting for items in input inventory...")
             local outputCount = countItemsInChest(config.outputChest)
@@ -852,7 +852,7 @@ end
 
 local function main()
     print("=== Create Blasting Control System ===")
-    print("Auto-detects items and processes up to 16 items per batch")
+    print("Auto-detects items and processes up to 64 items per batch")
     print("Processes items by type - batches linearly")
     print()
 
@@ -877,8 +877,8 @@ local function main()
     end
 
     print()
-    print("Blast times per batch (max 16 items):")
-    print("  1-16 items: 7.5s")
+    print("Blast times per batch (max 64 items):")
+    print("  1-64 items: 30s")
     print()
 
     if initMonitor() then
