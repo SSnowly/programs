@@ -802,58 +802,75 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
 end
 
 local function autoBlaster(config)
-    print("=== Auto Blaster Started ===")
+    print("=== Auto Blaster Started (Async Mode) ===")
     print("Input inventory: " .. config.inputChest)
     print("Output inventory: " .. config.outputChest)
     print("Redstone side: " .. config.redstoneSide)
     print("Flow control side: " .. (config.flowControlSide or "none"))
-    print("Processing batches linearly (one at a time)")
+    print("Processing batches asynchronously - multiple batches can run at once")
     print("Monitoring for items... Press Ctrl+C to stop")
     
-    local lastItemCount = 0
     local batchCounter = 0
-    local processingBatch = false
+    local lastProcessedItemCount = 0
     
     while true do
         local currentItemCount = countItemsInChest(config.inputChest)
         
-        if not processingBatch and currentItemCount > 0 then
-            print("\nItems detected! Starting batch processing...")
+        local activeBatchCount = 0
+        for _ in pairs(activeBatches) do
+            activeBatchCount = activeBatchCount + 1
+        end
+        
+        if currentItemCount > 64 and activeBatchCount == 0 and currentItemCount ~= lastProcessedItemCount then
+            print("\nLarge batch detected! Starting async processing...")
             
+            batchCounter = batchCounter + 1
+            local itemType, totalItems = getItemTypeAndCount(config.inputChest)
+            
+            if totalItems > 0 then
+                print("Starting Batch " .. batchCounter .. " (" .. totalItems .. " x " .. (itemType or "unknown") .. ")")
+                
+                processAsyncBatch(batchCounter, totalItems, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
+                
+                lastProcessedItemCount = totalItems
+                print("Batch " .. batchCounter .. " started asynchronously!")
+            end
+        elseif currentItemCount > 0 and currentItemCount <= 64 and activeBatchCount == 0 then
             batchCounter = batchCounter + 1
             local quantity, itemType = transferFromInputChest(config.inputChest, 64)
             
             if quantity > 0 then
-                processingBatch = true
-                print("Starting Batch " .. batchCounter .. " (" .. quantity .. " x " .. (itemType or "unknown") .. ")")
-                
-                processBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
-                
-                processingBatch = false
-                print("Batch " .. batchCounter .. " completed. Ready for next batch.")
+                print("Starting small Batch " .. batchCounter .. " (" .. quantity .. " x " .. (itemType or "unknown") .. ")")
+                processAsyncBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
+                lastProcessedItemCount = quantity
             end
         end
         
-        lastItemCount = currentItemCount
+        updateAsyncBatches()
         
-        if processingBatch then
-            print("Processing batch " .. batchCounter .. " | Items in inventory: " .. currentItemCount)
+        if activeBatchCount > 0 then
+            print("Active batches: " .. activeBatchCount .. " | Items in inventory: " .. currentItemCount)
         elseif currentItemCount > 0 then
-            print("Items ready for processing: " .. currentItemCount .. " (will process up to 64)")
+            if activeBatchCount > 0 then
+                print("Items ready (" .. currentItemCount .. ") - waiting for active batches to complete...")
+            else
+                print("Items ready for processing: " .. currentItemCount)
+            end
         elseif currentItemCount == 0 then
             print("Waiting for items in input inventory...")
             local outputCount = countItemsInChest(config.outputChest)
             showWaitingScreen(outputCount)
         end
         
-        sleep(2)
+        sleep(1)
     end
 end
 
 local function main()
-    print("=== Create Blasting Control System ===")
-    print("Auto-detects items and processes up to 64 items per batch")
-    print("Processes items by type - batches linearly")
+    print("=== Create Blasting Control System (Async Version) ===")
+    print("Auto-detects items and processes them asynchronously")
+    print("Large batches (>64 items): Dumps all items slowly, then 30s timer")
+    print("Small batches (<=64 items): Processed when no other batches active")
     print()
 
     local config = loadConfig()
@@ -877,8 +894,9 @@ local function main()
     end
 
     print()
-    print("Blast times per batch (max 64 items):")
-    print("  1-64 items: 30s")
+    print("Async processing modes:")
+    print("  Large batches: Slow dump + 30s processing timer")
+    print("  Small batches: Traditional 30s processing")
     print()
 
     if initMonitor() then
@@ -890,10 +908,158 @@ local function main()
     autoBlaster(config)
 end
 
+local activeBatches = {}
+
+local function dumpAllItemsSlowly(inputChestSide, flowControlSide, itemCount, batchId)
+    print("[Batch " .. batchId .. "] Starting stack-by-stack dump of " .. itemCount .. " items")
+    
+    local initialItems = countItemsInChest(inputChestSide)
+    local stackCount = math.ceil(initialItems / 64)
+    local stacksDumped = 0
+    
+    print("[Batch " .. batchId .. "] Estimated " .. stackCount .. " stacks to dump")
+    
+    local function dumpItems()
+        while true do
+            local currentItems = countItemsInChest(inputChestSide)
+            
+            if currentItems == 0 then
+                print("[Batch " .. batchId .. "] All items dumped!")
+                break
+            end
+            
+            local itemsDumped = initialItems - currentItems
+            local progress = math.floor((itemsDumped / initialItems) * 100)
+            
+            updateMonitorDisplay(batchId, "Dumping Items", itemsDumped, initialItems, currentItems, countItemsInChest(activeBatches[batchId].outputChestSide), initialItems)
+            
+            if flowControlSide then
+                redstone.setOutput(flowControlSide, true)
+                print("[Batch " .. batchId .. "] Flow ON - dumping stack " .. (stacksDumped + 1))
+            end
+            
+            sleep(7 / 20)
+            
+            if flowControlSide then
+                redstone.setOutput(flowControlSide, false)
+            end
+            
+            stacksDumped = stacksDumped + 1
+            
+            local newItemCount = countItemsInChest(inputChestSide)
+            local itemsThisStack = currentItems - newItemCount
+            
+            print("[Batch " .. batchId .. "] Stack " .. stacksDumped .. " dumped (" .. itemsThisStack .. " items) - " .. newItemCount .. " remaining")
+            
+            sleep(0.05)
+        end
+        
+        print("[Batch " .. batchId .. "] All " .. stacksDumped .. " stacks dumped! Starting 30s processing timer...")
+        activeBatches[batchId].dumpComplete = true
+        activeBatches[batchId].timerStart = os.clock()
+        
+        return true
+    end
+    
+    return dumpItems()
+end
+
+local function processAsyncBatch(batchId, totalItems, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
+    print("[Batch " .. batchId .. "] Starting async batch - " .. totalItems .. " items")
+    
+    activeBatches[batchId] = {
+        totalItems = totalItems,
+        inputChestSide = inputChestSide,
+        outputChestSide = outputChestSide,
+        redstoneSide = redstoneSide,
+        flowControlSide = flowControlSide,
+        dumpComplete = false,
+        timerStart = nil,
+        timerDuration = 30,
+        processed = false
+    }
+    
+    local inputCount = countItemsInChest(inputChestSide)
+    local outputCount = countItemsInChest(outputChestSide)
+    
+    updateMonitorDisplay(batchId, "Starting", 0, 100, inputCount, outputCount, totalItems)
+    
+    return dumpAllItemsSlowly(inputChestSide, flowControlSide, totalItems, batchId)
+end
+
+local function updateAsyncBatches()
+    for batchId, batch in pairs(activeBatches) do
+        if batch.dumpComplete and not batch.processed then
+            local elapsedTime = os.clock() - batch.timerStart
+            local progress = math.min((elapsedTime / batch.timerDuration) * 100, 100)
+            
+            updateMonitorDisplay(batchId, "Processing", progress, 100, 
+                countItemsInChest(batch.inputChestSide), 
+                countItemsInChest(batch.outputChestSide), 
+                batch.totalItems)
+            
+            if elapsedTime >= batch.timerDuration then
+                print("[Batch " .. batchId .. "] Processing timer complete! Turning redstone ON")
+                
+                if batch.redstoneSide then
+                    redstone.setOutput(batch.redstoneSide, true)
+                end
+                
+                batch.processed = true
+                
+                local expectedTotal = getUnprocessedItemCount(batch.outputChestSide) + batch.totalItems
+                
+                local function waitForCompletion()
+                    local startWait = os.clock()
+                    local maxWaitTime = 30
+                    
+                    while true do
+                        local currentItems = countItemsInChest(batch.outputChestSide)
+                        local waitTime = os.clock() - startWait
+                        
+                        updateMonitorDisplay(batchId, "Waiting for Items", currentItems, expectedTotal, 
+                            countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
+                        
+                        if currentItems >= expectedTotal then
+                            print("[Batch " .. batchId .. "] Complete! Found " .. currentItems .. " items in output")
+                            updateMonitorDisplay(batchId, "Complete", expectedTotal, expectedTotal, 
+                                countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
+                            
+                            markOutputItems(batch.outputChestSide, batch.totalItems, batchId)
+                            
+                            if batch.redstoneSide then
+                                sendRedstonePulse(batch.redstoneSide, 10)
+                            end
+                            
+                            activeBatches[batchId] = nil
+                            break
+                        end
+                        
+                        if waitTime > maxWaitTime then
+                            print("[Batch " .. batchId .. "] Timeout waiting for items")
+                            updateMonitorDisplay(batchId, "Timeout", currentItems, expectedTotal, 
+                                countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
+                            activeBatches[batchId] = nil
+                            break
+                        end
+                        
+                        sleep(0.5)
+                    end
+                end
+                
+                waitForCompletion()
+            end
+        end
+    end
+end
+
 _G.blast = blast
 _G.blastContinuous = blastContinuous
 _G.autoBlaster = autoBlaster
 _G.processBatch = processBatch
+_G.processAsyncBatch = processAsyncBatch
+_G.dumpAllItemsSlowly = dumpAllItemsSlowly
+_G.updateAsyncBatches = updateAsyncBatches
 _G.getBlastTime = getBlastTime
 _G.sendRedstonePulse = sendRedstonePulse
 _G.transferFromInputChest = transferFromInputChest
