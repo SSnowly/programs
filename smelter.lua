@@ -8,6 +8,63 @@ local screenConfig = {
 }
 local activeBatches = {}
 
+local processingTypes = {
+    blasting = "BLASTING SYSTEM",
+    haunting = "HAUNTING SYSTEM", 
+    washing = "WASHING SYSTEM",
+    smoking = "SMOKING SYSTEM"
+}
+
+local currentProcessingType = "blasting"
+
+local function setProcessingType(newType)
+    if not newType then
+        print("Available processing types:")
+        for key, value in pairs(processingTypes) do
+            local marker = (key == currentProcessingType) and " [CURRENT]" or ""
+            print("  " .. key .. " - " .. value .. marker)
+        end
+        print()
+        print("Usage: setProcessingType(\"blasting\") or setProcessingType(\"haunting\") etc.")
+        print("Shorthand: set(\"blasting\") or just: set blasting")
+        return false
+    end
+    
+    newType = string.lower(newType)
+    
+    if not processingTypes[newType] then
+        print("Invalid processing type: " .. newType)
+        print("Available types: " .. table.concat({"blasting", "haunting", "washing", "smoking"}, ", "))
+        return false
+    end
+    
+    local oldType = currentProcessingType
+    currentProcessingType = newType
+    
+    local config = loadConfig()
+    if config then
+        config.processingType = newType
+        if saveConfig(config) then
+            print("Processing type changed from '" .. oldType .. "' to '" .. newType .. "'")
+            print("Display text: " .. processingTypes[newType])
+            print("Configuration saved!")
+            return true
+        else
+            print("Error: Failed to save configuration")
+            currentProcessingType = oldType
+            return false
+        end
+    else
+        print("Warning: No existing configuration found")
+        print("Processing type changed to '" .. newType .. "' (will be saved on next setup)")
+        return true
+    end
+end
+
+local function set(processType)
+    return setProcessingType(processType)
+end
+
 local function findMonitor()
     local networkPeripherals = peripheral.getNames()
     for _, name in pairs(networkPeripherals) do
@@ -134,12 +191,12 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         return
     end
 
-    local headerText = "CREATE BLASTING SYSTEM"
+    local headerText = "CREATE " .. processingTypes[currentProcessingType]
     if string.len(headerText) > screenConfig.width then
-        headerText = "BLASTING SYSTEM"
+        headerText = processingTypes[currentProcessingType]
     end
     if string.len(headerText) > screenConfig.width then
-        headerText = "BLASTER"
+        headerText = string.upper(currentProcessingType)
     end
 
     local headerBarBg = string.rep("4", screenConfig.width)
@@ -247,12 +304,12 @@ local function showWaitingScreen(outputCount)
         return
     end
 
-    local headerText = "CREATE BLASTING SYSTEM"
+    local headerText = "CREATE " .. processingTypes[currentProcessingType]
     if string.len(headerText) > screenConfig.width then
-        headerText = "BLASTING SYSTEM"
+        headerText = processingTypes[currentProcessingType]
     end
     if string.len(headerText) > screenConfig.width then
-        headerText = "BLASTER"
+        headerText = string.upper(currentProcessingType)
     end
 
     local headerBarBg = string.rep("4", screenConfig.width)
@@ -377,7 +434,11 @@ local function loadConfig()
         if file then
             local content = file.readAll()
             file.close()
-            return textutils.unserialize(content)
+            local config = textutils.unserialize(content)
+            if config and config.processingType then
+                currentProcessingType = config.processingType
+            end
+            return config
         end
     end
     return nil
@@ -506,7 +567,8 @@ local function setupConfiguration()
         inputChest = inputChest,
         outputChest = outputChest,
         redstoneSide = redstoneSide,
-        flowControlSide = flowControlSide
+        flowControlSide = flowControlSide,
+        processingType = currentProcessingType
     }
 
     if saveConfig(config) then
@@ -1012,10 +1074,13 @@ local function autoBlaster(config)
 end
 
 local function main()
-    print("=== Create Blasting Control System (Async Version) ===")
+    print("=== Create Processing Control System (Async Version) ===")
+    print("Current mode: " .. string.upper(currentProcessingType) .. " (" .. processingTypes[currentProcessingType] .. ")")
     print("Auto-detects items and processes them asynchronously")
     print("Large batches (>64 items): Dumps all items slowly, then 30s timer")
     print("Small batches (<=64 items): Processed when no other batches active")
+    print()
+    print("To change processing type: setProcessingType(\"blasting\") or setProcessingType(\"haunting\") etc.")
     print()
 
     local config = loadConfig()
@@ -1060,6 +1125,8 @@ _G.processBatch = processBatch
 _G.processAsyncBatch = processAsyncBatch
 _G.dumpAllItemsSlowly = dumpAllItemsSlowly
 _G.updateAsyncBatches = updateAsyncBatches
+_G.setProcessingType = setProcessingType
+_G.set = set
 _G.getBlastTime = getBlastTime
 _G.sendRedstonePulse = sendRedstonePulse
 _G.transferFromInputChest = transferFromInputChest
@@ -1071,5 +1138,11 @@ _G.saveConfig = saveConfig
 
 if not _G.BLASTER_LOADED then
     _G.BLASTER_LOADED = true
-    main()
+    
+    local args = {...}
+    if args[1] == "set" and args[2] then
+        setProcessingType(args[2])
+    else
+        main()
+    end
 end
