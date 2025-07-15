@@ -23,13 +23,13 @@ local function initMonitor()
     monitor = findMonitor()
     if monitor then
         monitor.clear()
-        
+
         monitor.setTextScale(1.0)
         local baseWidth, baseHeight = monitor.getSize()
         print("Base monitor size at 1.0 scale: " .. baseWidth .. "x" .. baseHeight)
-        
+
         screenConfig.isColor = monitor.isColor()
-        
+
         if baseWidth < 10 or baseHeight < 5 then
             screenConfig.textScale = 2.0
             monitor.setTextScale(2.0)
@@ -43,14 +43,14 @@ local function initMonitor()
             monitor.setTextScale(0.5)
             print("Large monitor detected, using 0.5 scale")
         end
-        
+
         local finalWidth, finalHeight = monitor.getSize()
         screenConfig.width = finalWidth
         screenConfig.height = finalHeight
-        
+
         print("Final monitor size: " .. finalWidth .. "x" .. finalHeight)
         print("Screen config saved: " .. screenConfig.width .. "x" .. screenConfig.height .. " scale:" .. screenConfig.textScale .. " color:" .. tostring(screenConfig.isColor))
-        
+
         monitor.setCursorPos(1, 1)
         return true
     end
@@ -59,22 +59,22 @@ end
 
 local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
     if not monitor then return end
-    
+
     local maxBarWidth = screenConfig.width - x - 15
     local actualWidth = math.min(width, maxBarWidth)
-    
+
     local percentage = math.min(progress / maxProgress, 1)
     local filledWidth = math.floor(actualWidth * percentage)
     local percentageText = math.floor(percentage * 100) .. "%"
-    
+
     monitor.setCursorPos(x, y)
     monitor.setTextColor(colors.yellow)
     monitor.write(label)
-    
+
     local barText = string.rep(" ", actualWidth)
     local barBg = string.rep("7", actualWidth)
     local barFg = string.rep("0", actualWidth)
-    
+
     if filledWidth > 0 then
         local colorChar = "0"
         if screenConfig.isColor then
@@ -85,13 +85,13 @@ local function drawProgressBar(x, y, width, progress, maxProgress, label, color)
             elseif color == colors.blue then colorChar = "b"
             end
         end
-        
+
         barBg = string.rep(colorChar, filledWidth) .. string.rep("7", actualWidth - filledWidth)
     end
-    
+
     monitor.setCursorPos(x, y + 1)
     monitor.blit(barText, barFg, barBg)
-    
+
     monitor.setCursorPos(x + actualWidth + 2, y + 1)
     monitor.setTextColor(colors.white)
     monitor.setBackgroundColor(colors.black)
@@ -102,9 +102,9 @@ end
 
 local function updateMonitorDisplay(batchId, phase, progress, maxProgress, inputCount, outputCount, batchSize)
     if not monitor then return end
-    
+
     monitor.clear()
-    
+
     if screenConfig.width < 10 or screenConfig.height < 5 then
         monitor.setCursorPos(1, 1)
         monitor.setTextColor(colors.white)
@@ -116,7 +116,7 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         else
             monitor.write(tostring(batchId))
         end
-        
+
         if screenConfig.height >= 2 then
             monitor.setCursorPos(1, screenConfig.height)
             monitor.setTextColor(colors.white)
@@ -132,7 +132,7 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         end
         return
     end
-    
+
     local headerText = "CREATE BLASTING SYSTEM"
     if string.len(headerText) > screenConfig.width then
         headerText = "BLASTING SYSTEM"
@@ -140,19 +140,19 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     if string.len(headerText) > screenConfig.width then
         headerText = "BLASTER"
     end
-    
+
     local headerBarBg = string.rep("4", screenConfig.width)
     local headerBarFg = string.rep("f", screenConfig.width)
     local headerBarText = string.rep(" ", screenConfig.width)
-    
+
     local headerStart = math.floor((screenConfig.width - string.len(headerText)) / 2) + 1
     for i = 1, string.len(headerText) do
         headerBarText = string.sub(headerBarText, 1, headerStart + i - 2) .. string.sub(headerText, i, i) .. string.sub(headerBarText, headerStart + i, -1)
     end
-    
+
     monitor.setCursorPos(1, 1)
     monitor.blit(headerBarText, headerBarFg, headerBarBg)
-    
+
     monitor.setCursorPos(1, 3)
     monitor.setTextColor(colors.white)
     monitor.setBackgroundColor(colors.black)
@@ -161,7 +161,7 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
         statusText = "B" .. batchId .. " | " .. phase
     end
     monitor.write(statusText)
-    
+
     local barColor = colors.blue
     if phase == "Processing" then
         barColor = colors.orange
@@ -172,52 +172,52 @@ local function updateMonitorDisplay(batchId, phase, progress, maxProgress, input
     elseif phase == "Starting" then
         barColor = colors.lime
     end
-    
+
     local progressBarWidth = math.min(20, screenConfig.width - 20)
     drawProgressBar(1, 5, progressBarWidth, progress, maxProgress, "Progress:", barColor)
-    
+
     monitor.setCursorPos(1, 8)
     monitor.setTextColor(colors.cyan)
     monitor.setBackgroundColor(colors.black)
     monitor.write("Batch Size: " .. (batchSize or maxProgress) .. " items")
-    
+
     local itemsProcessed = 0
     if phase == "Complete" then
         itemsProcessed = batchSize or maxProgress
     elseif phase == "Waiting for Items" then
         itemsProcessed = math.max(0, progress - (batchSize or maxProgress))
     end
-    
+
     monitor.setCursorPos(1, 10)
     monitor.setTextColor(colors.yellow)
     monitor.write("Items Processed: " .. itemsProcessed .. "/" .. (batchSize or maxProgress))
-    
+
     local bottomBarBg = string.rep("8", screenConfig.width)
     local bottomBarFg = string.rep("0", screenConfig.width)
     local bottomBarText = string.rep(" ", screenConfig.width)
-    
+
     local outputPercentage = math.floor((outputCount / 2304) * 100)
     local outputText = outputPercentage .. "%"
     local timeText = os.date("%H:%M")
-    
+
     for i = 1, string.len(outputText) do
         bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
     end
-    
+
     local timeStart = screenConfig.width - string.len(timeText) + 1
     for i = 1, string.len(timeText) do
         bottomBarText = string.sub(bottomBarText, 1, timeStart + i - 2) .. string.sub(timeText, i, i) .. string.sub(bottomBarText, timeStart + i, -1)
     end
-    
+
     monitor.setCursorPos(1, screenConfig.height)
     monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
 
 local function showWaitingScreen(outputCount)
     if not monitor then return end
-    
+
     monitor.clear()
-    
+
     if screenConfig.width < 10 or screenConfig.height < 5 then
         monitor.setCursorPos(1, 1)
         monitor.setTextColor(colors.white)
@@ -229,7 +229,7 @@ local function showWaitingScreen(outputCount)
         else
             monitor.write("R")
         end
-        
+
         if screenConfig.height >= 2 then
             monitor.setCursorPos(1, screenConfig.height)
             monitor.setTextColor(colors.white)
@@ -245,7 +245,7 @@ local function showWaitingScreen(outputCount)
         end
         return
     end
-    
+
     local headerText = "CREATE BLASTING SYSTEM"
     if string.len(headerText) > screenConfig.width then
         headerText = "BLASTING SYSTEM"
@@ -253,50 +253,50 @@ local function showWaitingScreen(outputCount)
     if string.len(headerText) > screenConfig.width then
         headerText = "BLASTER"
     end
-    
+
     local headerBarBg = string.rep("4", screenConfig.width)
     local headerBarFg = string.rep("f", screenConfig.width)
     local headerBarText = string.rep(" ", screenConfig.width)
-    
+
     local headerStart = math.floor((screenConfig.width - string.len(headerText)) / 2) + 1
     for i = 1, string.len(headerText) do
         headerBarText = string.sub(headerBarText, 1, headerStart + i - 2) .. string.sub(headerText, i, i) .. string.sub(headerBarText, headerStart + i, -1)
     end
-    
+
     monitor.setCursorPos(1, 1)
     monitor.blit(headerBarText, headerBarFg, headerBarBg)
-    
+
     local startY = math.max(3, math.floor(screenConfig.height / 4))
-    
+
     monitor.setCursorPos(2, startY)
     monitor.setTextColor(colors.lime)
     monitor.setBackgroundColor(colors.black)
     monitor.write("Ready for Operation")
-    
+
     monitor.setCursorPos(2, startY + 2)
     monitor.setTextColor(colors.yellow)
     monitor.write("Waiting for Items...")
-    
+
     if screenConfig.height > startY + 4 then
         monitor.setCursorPos(2, startY + 4)
         monitor.setTextColor(colors.orange)
         monitor.write("Status:")
-        
+
         local barWidth = math.min(20, screenConfig.width - 12)
         local time = os.clock()
         local cycle = time % 4
         local position = 0
-        
+
         if cycle < 2 then
             position = math.floor((cycle / 2) * barWidth)
         else
             position = math.floor(((4 - cycle) / 2) * barWidth)
         end
-        
+
         local statusBarText = string.rep(" ", barWidth)
         local statusBarBg = string.rep("8", barWidth)
         local statusBarFg = string.rep("0", barWidth)
-        
+
         if position >= 0 and position < barWidth then
             if screenConfig.isColor then
                 statusBarBg = string.sub(statusBarBg, 1, position) .. "d" .. string.sub(statusBarBg, position + 2, -1)
@@ -304,38 +304,38 @@ local function showWaitingScreen(outputCount)
                 statusBarBg = string.sub(statusBarBg, 1, position) .. "0" .. string.sub(statusBarBg, position + 2, -1)
             end
         end
-        
+
         monitor.setCursorPos(2, startY + 5)
         monitor.blit(statusBarText, statusBarFg, statusBarBg)
     end
-    
+
     if screenConfig.height > startY + 7 then
         monitor.setCursorPos(2, startY + 7)
         monitor.setTextColor(colors.cyan)
         monitor.write("Network: Active")
-        
+
         monitor.setCursorPos(2, startY + 8)
         monitor.setTextColor(colors.lightBlue)
         monitor.write("System: Online")
     end
-    
+
     local bottomBarBg = string.rep("8", screenConfig.width)
     local bottomBarFg = string.rep("0", screenConfig.width)
     local bottomBarText = string.rep(" ", screenConfig.width)
-    
+
     local outputPercentage = math.floor(((outputCount or 0) / 2304) * 100)
     local outputText = outputPercentage .. "%"
     local timeText = os.date("%H:%M")
-    
+
     for i = 1, string.len(outputText) do
         bottomBarText = string.sub(bottomBarText, 1, i - 1) .. string.sub(outputText, i, i) .. string.sub(bottomBarText, i + 1, -1)
     end
-    
+
     local timeStart = screenConfig.width - string.len(timeText) + 1
     for i = 1, string.len(timeText) do
         bottomBarText = string.sub(bottomBarText, 1, timeStart + i - 2) .. string.sub(timeText, i, i) .. string.sub(bottomBarText, timeStart + i, -1)
     end
-    
+
     monitor.setCursorPos(1, screenConfig.height)
     monitor.blit(bottomBarText, bottomBarFg, bottomBarBg)
 end
@@ -414,12 +414,12 @@ local function selectInventory(prompt, inventories)
         print(i .. ". " .. inv.side .. " (" .. inv.type .. ") [network]")
     end
     print("Enter choice (1-" .. #inventories .. "):")
-    
+
     local choice = tonumber(io.read())
     if choice and choice >= 1 and choice <= #inventories then
         return inventories[choice].side
     end
-    
+
     return nil
 end
 
@@ -427,17 +427,17 @@ local function setupConfiguration()
     print("=== First Time Setup ===")
     print("Scanning for peripherals...")
     print()
-    
+
     local inventoryCount = 0
-    
+
     print("=== NETWORK CONNECTIONS ===")
     local networkPeripherals = peripheral.getNames()
-    
+
     for _, name in pairs(networkPeripherals) do
         local peripheral_type = peripheral.getType(name)
         if peripheral_type then
             local isInventory = isInventoryType(peripheral_type)
-            
+
             if isInventory then
                 print(name .. ": " .. peripheral_type .. " [INVENTORY]")
                 inventoryCount = inventoryCount + 1
@@ -446,7 +446,7 @@ local function setupConfiguration()
             end
         end
     end
-    
+
     print()
     print("Total inventories found: " .. inventoryCount)
     print()
@@ -801,6 +801,151 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
     end
 end
 
+local activeBatches = {}
+
+local function dumpAllItemsSlowly(inputChestSide, flowControlSide, itemCount, batchId)
+    print("[Batch " .. batchId .. "] Starting stack-by-stack dump of " .. itemCount .. " items")
+
+    local initialItems = countItemsInChest(inputChestSide)
+    local stackCount = math.ceil(initialItems / 64)
+    local stacksDumped = 0
+
+    print("[Batch " .. batchId .. "] Estimated " .. stackCount .. " stacks to dump")
+
+    local function dumpItems()
+        while true do
+            local currentItems = countItemsInChest(inputChestSide)
+
+            if currentItems == 0 then
+                print("[Batch " .. batchId .. "] All items dumped!")
+                break
+            end
+
+            local itemsDumped = initialItems - currentItems
+            local progress = math.floor((itemsDumped / initialItems) * 100)
+
+            updateMonitorDisplay(batchId, "Dumping Items", itemsDumped, initialItems, currentItems, countItemsInChest(activeBatches[batchId].outputChestSide), initialItems)
+
+            if flowControlSide then
+                redstone.setOutput(flowControlSide, true)
+                print("[Batch " .. batchId .. "] Flow ON - dumping stack " .. (stacksDumped + 1))
+            end
+
+            sleep(7 / 20)
+
+            if flowControlSide then
+                redstone.setOutput(flowControlSide, false)
+            end
+
+            stacksDumped = stacksDumped + 1
+
+            local newItemCount = countItemsInChest(inputChestSide)
+            local itemsThisStack = currentItems - newItemCount
+
+            print("[Batch " .. batchId .. "] Stack " .. stacksDumped .. " dumped (" .. itemsThisStack .. " items) - " .. newItemCount .. " remaining")
+
+            sleep(0.05)
+        end
+
+        print("[Batch " .. batchId .. "] All " .. stacksDumped .. " stacks dumped! Starting 30s processing timer...")
+        activeBatches[batchId].dumpComplete = true
+        activeBatches[batchId].timerStart = os.clock()
+
+        return true
+    end
+
+    return dumpItems()
+end
+
+local function processAsyncBatch(batchId, totalItems, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
+    print("[Batch " .. batchId .. "] Starting async batch - " .. totalItems .. " items")
+
+    activeBatches[batchId] = {
+        totalItems = totalItems,
+        inputChestSide = inputChestSide,
+        outputChestSide = outputChestSide,
+        redstoneSide = redstoneSide,
+        flowControlSide = flowControlSide,
+        dumpComplete = false,
+        timerStart = nil,
+        timerDuration = 30,
+        processed = false
+    }
+
+    local inputCount = countItemsInChest(inputChestSide)
+    local outputCount = countItemsInChest(outputChestSide)
+
+    updateMonitorDisplay(batchId, "Starting", 0, 100, inputCount, outputCount, totalItems)
+
+    return dumpAllItemsSlowly(inputChestSide, flowControlSide, totalItems, batchId)
+end
+
+local function updateAsyncBatches()
+    for batchId, batch in pairs(activeBatches) do
+        if batch.dumpComplete and not batch.processed then
+            local elapsedTime = os.clock() - batch.timerStart
+            local progress = math.min((elapsedTime / batch.timerDuration) * 100, 100)
+
+            updateMonitorDisplay(batchId, "Processing", progress, 100,
+                countItemsInChest(batch.inputChestSide),
+                countItemsInChest(batch.outputChestSide),
+                batch.totalItems)
+
+            if elapsedTime >= batch.timerDuration then
+                print("[Batch " .. batchId .. "] Processing timer complete! Turning redstone ON")
+
+                if batch.redstoneSide then
+                    redstone.setOutput(batch.redstoneSide, true)
+                end
+
+                batch.processed = true
+
+                local expectedTotal = getUnprocessedItemCount(batch.outputChestSide) + batch.totalItems
+
+                local function waitForCompletion()
+                    local startWait = os.clock()
+                    local maxWaitTime = 30
+
+                    while true do
+                        local currentItems = countItemsInChest(batch.outputChestSide)
+                        local waitTime = os.clock() - startWait
+
+                        updateMonitorDisplay(batchId, "Waiting for Items", currentItems, expectedTotal,
+                            countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
+
+                        if currentItems >= expectedTotal then
+                            print("[Batch " .. batchId .. "] Complete! Found " .. currentItems .. " items in output")
+                            updateMonitorDisplay(batchId, "Complete", expectedTotal, expectedTotal,
+                                countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
+
+                            markOutputItems(batch.outputChestSide, batch.totalItems, batchId)
+
+                            if batch.redstoneSide then
+                                sendRedstonePulse(batch.redstoneSide, 10)
+                            end
+
+                            activeBatches[batchId] = nil
+                            break
+                        end
+
+                        if waitTime > maxWaitTime then
+                            print("[Batch " .. batchId .. "] Timeout waiting for items")
+                            updateMonitorDisplay(batchId, "Timeout", currentItems, expectedTotal,
+                                countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
+                            activeBatches[batchId] = nil
+                            break
+                        end
+
+                        sleep(0.5)
+                    end
+                end
+
+                waitForCompletion()
+            end
+        end
+    end
+end
+
 local function autoBlaster(config)
     print("=== Auto Blaster Started (Async Mode) ===")
     print("Input inventory: " .. config.inputChest)
@@ -809,45 +954,45 @@ local function autoBlaster(config)
     print("Flow control side: " .. (config.flowControlSide or "none"))
     print("Processing batches asynchronously - multiple batches can run at once")
     print("Monitoring for items... Press Ctrl+C to stop")
-    
+
     local batchCounter = 0
     local lastProcessedItemCount = 0
-    
+
     while true do
         local currentItemCount = countItemsInChest(config.inputChest)
-        
+
         local activeBatchCount = 0
         for _ in pairs(activeBatches) do
             activeBatchCount = activeBatchCount + 1
         end
-        
+
         if currentItemCount > 64 and activeBatchCount == 0 and currentItemCount ~= lastProcessedItemCount then
             print("\nLarge batch detected! Starting async processing...")
-            
+
             batchCounter = batchCounter + 1
             local itemType, totalItems = getItemTypeAndCount(config.inputChest)
-            
+
             if totalItems > 0 then
                 print("Starting Batch " .. batchCounter .. " (" .. totalItems .. " x " .. (itemType or "unknown") .. ")")
-                
+
                 processAsyncBatch(batchCounter, totalItems, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
-                
+
                 lastProcessedItemCount = totalItems
                 print("Batch " .. batchCounter .. " started asynchronously!")
             end
         elseif currentItemCount > 0 and currentItemCount <= 64 and activeBatchCount == 0 then
             batchCounter = batchCounter + 1
             local quantity, itemType = transferFromInputChest(config.inputChest, 64)
-            
+
             if quantity > 0 then
                 print("Starting small Batch " .. batchCounter .. " (" .. quantity .. " x " .. (itemType or "unknown") .. ")")
                 processAsyncBatch(batchCounter, quantity, config.inputChest, config.outputChest, config.redstoneSide, config.flowControlSide)
                 lastProcessedItemCount = quantity
             end
         end
-        
+
         updateAsyncBatches()
-        
+
         if activeBatchCount > 0 then
             print("Active batches: " .. activeBatchCount .. " | Items in inventory: " .. currentItemCount)
         elseif currentItemCount > 0 then
@@ -861,7 +1006,7 @@ local function autoBlaster(config)
             local outputCount = countItemsInChest(config.outputChest)
             showWaitingScreen(outputCount)
         end
-        
+
         sleep(1)
     end
 end
@@ -906,151 +1051,6 @@ local function main()
     end
 
     autoBlaster(config)
-end
-
-local activeBatches = {}
-
-local function dumpAllItemsSlowly(inputChestSide, flowControlSide, itemCount, batchId)
-    print("[Batch " .. batchId .. "] Starting stack-by-stack dump of " .. itemCount .. " items")
-    
-    local initialItems = countItemsInChest(inputChestSide)
-    local stackCount = math.ceil(initialItems / 64)
-    local stacksDumped = 0
-    
-    print("[Batch " .. batchId .. "] Estimated " .. stackCount .. " stacks to dump")
-    
-    local function dumpItems()
-        while true do
-            local currentItems = countItemsInChest(inputChestSide)
-            
-            if currentItems == 0 then
-                print("[Batch " .. batchId .. "] All items dumped!")
-                break
-            end
-            
-            local itemsDumped = initialItems - currentItems
-            local progress = math.floor((itemsDumped / initialItems) * 100)
-            
-            updateMonitorDisplay(batchId, "Dumping Items", itemsDumped, initialItems, currentItems, countItemsInChest(activeBatches[batchId].outputChestSide), initialItems)
-            
-            if flowControlSide then
-                redstone.setOutput(flowControlSide, true)
-                print("[Batch " .. batchId .. "] Flow ON - dumping stack " .. (stacksDumped + 1))
-            end
-            
-            sleep(7 / 20)
-            
-            if flowControlSide then
-                redstone.setOutput(flowControlSide, false)
-            end
-            
-            stacksDumped = stacksDumped + 1
-            
-            local newItemCount = countItemsInChest(inputChestSide)
-            local itemsThisStack = currentItems - newItemCount
-            
-            print("[Batch " .. batchId .. "] Stack " .. stacksDumped .. " dumped (" .. itemsThisStack .. " items) - " .. newItemCount .. " remaining")
-            
-            sleep(0.05)
-        end
-        
-        print("[Batch " .. batchId .. "] All " .. stacksDumped .. " stacks dumped! Starting 30s processing timer...")
-        activeBatches[batchId].dumpComplete = true
-        activeBatches[batchId].timerStart = os.clock()
-        
-        return true
-    end
-    
-    return dumpItems()
-end
-
-local function processAsyncBatch(batchId, totalItems, inputChestSide, outputChestSide, redstoneSide, flowControlSide)
-    print("[Batch " .. batchId .. "] Starting async batch - " .. totalItems .. " items")
-    
-    activeBatches[batchId] = {
-        totalItems = totalItems,
-        inputChestSide = inputChestSide,
-        outputChestSide = outputChestSide,
-        redstoneSide = redstoneSide,
-        flowControlSide = flowControlSide,
-        dumpComplete = false,
-        timerStart = nil,
-        timerDuration = 30,
-        processed = false
-    }
-    
-    local inputCount = countItemsInChest(inputChestSide)
-    local outputCount = countItemsInChest(outputChestSide)
-    
-    updateMonitorDisplay(batchId, "Starting", 0, 100, inputCount, outputCount, totalItems)
-    
-    return dumpAllItemsSlowly(inputChestSide, flowControlSide, totalItems, batchId)
-end
-
-local function updateAsyncBatches()
-    for batchId, batch in pairs(activeBatches) do
-        if batch.dumpComplete and not batch.processed then
-            local elapsedTime = os.clock() - batch.timerStart
-            local progress = math.min((elapsedTime / batch.timerDuration) * 100, 100)
-            
-            updateMonitorDisplay(batchId, "Processing", progress, 100, 
-                countItemsInChest(batch.inputChestSide), 
-                countItemsInChest(batch.outputChestSide), 
-                batch.totalItems)
-            
-            if elapsedTime >= batch.timerDuration then
-                print("[Batch " .. batchId .. "] Processing timer complete! Turning redstone ON")
-                
-                if batch.redstoneSide then
-                    redstone.setOutput(batch.redstoneSide, true)
-                end
-                
-                batch.processed = true
-                
-                local expectedTotal = getUnprocessedItemCount(batch.outputChestSide) + batch.totalItems
-                
-                local function waitForCompletion()
-                    local startWait = os.clock()
-                    local maxWaitTime = 30
-                    
-                    while true do
-                        local currentItems = countItemsInChest(batch.outputChestSide)
-                        local waitTime = os.clock() - startWait
-                        
-                        updateMonitorDisplay(batchId, "Waiting for Items", currentItems, expectedTotal, 
-                            countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
-                        
-                        if currentItems >= expectedTotal then
-                            print("[Batch " .. batchId .. "] Complete! Found " .. currentItems .. " items in output")
-                            updateMonitorDisplay(batchId, "Complete", expectedTotal, expectedTotal, 
-                                countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
-                            
-                            markOutputItems(batch.outputChestSide, batch.totalItems, batchId)
-                            
-                            if batch.redstoneSide then
-                                sendRedstonePulse(batch.redstoneSide, 10)
-                            end
-                            
-                            activeBatches[batchId] = nil
-                            break
-                        end
-                        
-                        if waitTime > maxWaitTime then
-                            print("[Batch " .. batchId .. "] Timeout waiting for items")
-                            updateMonitorDisplay(batchId, "Timeout", currentItems, expectedTotal, 
-                                countItemsInChest(batch.inputChestSide), currentItems, batch.totalItems)
-                            activeBatches[batchId] = nil
-                            break
-                        end
-                        
-                        sleep(0.5)
-                    end
-                end
-                
-                waitForCompletion()
-            end
-        end
-    end
 end
 
 _G.blast = blast
