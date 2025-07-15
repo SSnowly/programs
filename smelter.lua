@@ -6,6 +6,7 @@ local screenConfig = {
     textScale = 1.0,
     isColor = true
 }
+local activeBatches = {}
 
 local function findMonitor()
     local networkPeripherals = peripheral.getNames()
@@ -801,7 +802,6 @@ local function blastContinuous(inputChestSide, outputChestSide, redstoneSide, fl
     end
 end
 
-local activeBatches = {}
 
 local function dumpAllItemsSlowly(inputChestSide, flowControlSide, itemCount, batchId)
     print("[Batch " .. batchId .. "] Starting stack-by-stack dump of " .. itemCount .. " items")
